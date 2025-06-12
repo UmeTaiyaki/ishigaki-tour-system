@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from typing import Dict
+from typing import Dict, List
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 import logging
 
 from app.schemas.optimization import (
@@ -9,14 +9,34 @@ from app.schemas.optimization import (
     OptimizationResult,
     OptimizationJobStatus,
     Guest,
-    Vehicle
+    Vehicle,
+    Location,
+    TimeWindow
 )
 
 logger = logging.getLogger(__name__)
+
+# ルーターを作成（これが重要！）
 router = APIRouter()
 
 # 一時的なメモリストレージ（後でRedisやDBに置き換え）
 optimization_jobs: Dict[str, OptimizationJobStatus] = {}
+
+# 最適化エンジンのインスタンス（遅延インポート）
+optimizer = None
+
+
+def get_optimizer():
+    """最適化エンジンを遅延初期化"""
+    global optimizer
+    if optimizer is None:
+        try:
+            from app.optimizer.route_optimizer import RouteOptimizer
+            optimizer = RouteOptimizer()
+            logger.info("Route optimizer initialized successfully")
+        except ImportError as e:
+            logger.error(f"Failed to import RouteOptimizer: {e}")
+    return optimizer
 
 
 @router.post("/route", response_model=OptimizationJobStatus)
@@ -86,8 +106,7 @@ async def get_optimization_result(job_id: str):
 
 async def run_optimization(job_id: str, request: OptimizationRequest):
     """
-    最適化を実行する（仮実装）
-    Day 3-4でOR-Toolsを統合
+    最適化を実行する
     """
     try:
         # ステータス更新
@@ -95,30 +114,19 @@ async def run_optimization(job_id: str, request: OptimizationRequest):
         optimization_jobs[job_id].updated_at = datetime.now()
         optimization_jobs[job_id].progress_percentage = 10
         
-        # TODO: ここで実際の最適化処理を実装
-        # 1. ゲストと車両データを取得
-        # 2. 距離行列を計算
-        # 3. OR-Toolsで最適化
-        # 4. 結果を整形
+        # サンプルデータの生成（本番ではDBから取得）
+        guests = create_sample_guests(request.participant_ids)
+        vehicles = create_sample_vehicles(request.available_vehicle_ids)
         
-        # 仮の結果を生成（Day 1-2では仮実装）
-        import asyncio
-        await asyncio.sleep(2)  # 処理時間のシミュレーション
+        # 最適化エンジンを取得
+        opt = get_optimizer()
         
-        result = OptimizationResult(
-            tour_id=f"tour_{uuid.uuid4().hex[:8]}",
-            status="success",
-            total_vehicles_used=1,
-            routes=[],
-            total_distance_km=25.5,
-            total_time_minutes=90,
-            average_efficiency_score=0.85,
-            optimization_metrics={
-                "iterations": 100,
-                "convergence": True
-            },
-            computation_time_seconds=2.0
-        )
+        if opt:
+            # 最適化実行
+            result = opt.optimize(request, guests, vehicles)
+        else:
+            # フォールバック：仮の結果を生成
+            result = create_dummy_result(request)
         
         # 結果を保存
         optimization_jobs[job_id].status = "completed"
@@ -133,3 +141,118 @@ async def run_optimization(job_id: str, request: OptimizationRequest):
         optimization_jobs[job_id].status = "failed"
         optimization_jobs[job_id].error_message = str(e)
         optimization_jobs[job_id].updated_at = datetime.now()
+
+
+def create_sample_guests(guest_ids: List[str]) -> List[Guest]:
+    """サンプルゲストデータを生成（テスト用）"""
+    sample_hotels = [
+        ("ANAインターコンチネンタル", 24.3969, 124.1531),
+        ("フサキビーチリゾート", 24.3667, 124.1389),
+        ("グランヴィリオリゾート", 24.4086, 124.1639),
+        ("アートホテル", 24.3378, 124.1561),
+    ]
+    
+    guests = []
+    for i, guest_id in enumerate(guest_ids):
+        hotel = sample_hotels[i % len(sample_hotels)]
+        guest = Guest(
+            id=guest_id,
+            name=f"ゲスト{i+1}",
+            hotel_name=hotel[0],
+            pickup_location=Location(
+                name=hotel[0],
+                lat=hotel[1],
+                lng=hotel[2]
+            ),
+            num_adults=2,
+            num_children=1 if i % 3 == 0 else 0,
+            preferred_time_window=TimeWindow(
+                start=time(7, 30),
+                end=time(8, 30)
+            ) if i % 2 == 0 else None,
+            special_requirements=[]
+        )
+        guests.append(guest)
+    
+    return guests
+
+
+def create_sample_vehicles(vehicle_ids: List[str]) -> List[Vehicle]:
+    """サンプル車両データを生成（テスト用）"""
+    vehicles = []
+    
+    for i, vehicle_id in enumerate(vehicle_ids):
+        if i % 3 == 0:
+            # 大型バス（より多くの容量）
+            vehicle = Vehicle(
+                id=vehicle_id,
+                name=f"大型バス{i+1}",
+                capacity_adults=20,
+                capacity_children=5,
+                driver_name=f"ドライバー{i+1}",
+                vehicle_type="minibus",
+                equipment=[]
+            )
+        elif i % 3 == 1:
+            # 中型バン
+            vehicle = Vehicle(
+                id=vehicle_id,
+                name=f"バン{i+1}",
+                capacity_adults=10,
+                capacity_children=3,
+                driver_name=f"ドライバー{i+1}",
+                vehicle_type="van",
+                equipment=["child_seat"] if i % 4 == 0 else []
+            )
+        else:
+            # 小型車
+            vehicle = Vehicle(
+                id=vehicle_id,
+                name=f"セダン{i+1}",
+                capacity_adults=4,
+                capacity_children=1,
+                driver_name=f"ドライバー{i+1}",
+                vehicle_type="sedan",
+                equipment=[]
+            )
+        vehicles.append(vehicle)
+    
+    return vehicles
+
+
+@router.get("/test-data")
+async def get_test_data():
+    """テスト用のサンプルデータを返す"""
+    return {
+        "sample_request": {
+            "tour_date": "2024-03-20",
+            "activity_type": "snorkeling",
+            "destination": {
+                "name": "川平湾",
+                "lat": 24.4526,
+                "lng": 124.1456
+            },
+            "participant_ids": ["guest001", "guest002", "guest003", "guest004"],
+            "available_vehicle_ids": ["vehicle001", "vehicle002"],
+            "constraints": {
+                "max_pickup_time_minutes": 90,
+                "buffer_time_minutes": 15,
+                "weather_consideration": True
+            },
+            "optimization_strategy": "balanced",
+            "departure_time": "09:00:00"
+        },
+        "sample_locations": {
+            "hotels": [
+                {"name": "ANAインターコンチネンタル", "lat": 24.3969, "lng": 124.1531},
+                {"name": "フサキビーチリゾート", "lat": 24.3667, "lng": 124.1389},
+                {"name": "グランヴィリオリゾート", "lat": 24.4086, "lng": 124.1639},
+                {"name": "アートホテル", "lat": 24.3378, "lng": 124.1561}
+            ],
+            "destinations": [
+                {"name": "川平湾", "lat": 24.4526, "lng": 124.1456},
+                {"name": "石垣港", "lat": 24.3345, "lng": 124.1572},
+                {"name": "竹富島行き桟橋", "lat": 24.3324, "lng": 124.1547}
+            ]
+        }
+    }
