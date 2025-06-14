@@ -65,8 +65,8 @@ class OptimizedRouteInfo(BaseModel):
 class TourInDB(TourBase):
     """データベースから取得したツアー情報"""
     id: UUID
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None  # Optionalに変更
+    updated_at: Optional[datetime] = None  # Optionalに変更
     
     class Config:
         from_attributes = True

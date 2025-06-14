@@ -129,7 +129,7 @@ class RouteOptimizer:
             ))
             location_names.append(guest.hotel_name)
         
-        # 目的地
+        # 目的地（最後に追加）
         locations.append((
             request.destination.lat,
             request.destination.lng
@@ -139,6 +139,9 @@ class RouteOptimizer:
         # 距離行列と時間行列を作成
         distance_matrix = self.distance_calculator.create_distance_matrix(locations)
         time_matrix = self.distance_calculator.create_time_matrix(distance_matrix)
+        
+        # 目的地への強制的なルーティングを設定
+        destination_index = len(locations) - 1
         
         # 需要（各ゲストの人数）
         demands = [0]  # デポは0
@@ -159,12 +162,13 @@ class RouteOptimizer:
             'vehicle_capacities': vehicle_capacities,
             'num_vehicles': len(vehicles),
             'depot': 0,
-            'destination': len(locations) - 1,
+            'destination': destination_index,
             'time_windows': time_windows,
             'location_names': location_names,
-            'locations': locations,  # 位置情報を追加
+            'locations': locations,
             'guests': guests,
-            'vehicles': vehicles
+            'vehicles': vehicles,
+            'num_guests': len(guests)
         }
         
         return data
@@ -211,14 +215,12 @@ class RouteOptimizer:
                 
                 time_windows.append((start_minutes, end_minutes))
         
-        # 目的地（出発時刻前後30分）
-        dest_start = departure_datetime - timedelta(minutes=30)
-        dest_end = departure_datetime + timedelta(minutes=30)
+        # 目的地（すべてのゲストをピックアップ後）
+        # 最小でも最後のピックアップから30分後
+        dest_start = int((departure_datetime - base_time).total_seconds() / 60) - 30
+        dest_end = 480  # 14:00まで
         
-        start_minutes = int((dest_start - base_time).total_seconds() / 60)
-        end_minutes = int((dest_end - base_time).total_seconds() / 60)
-        
-        time_windows.append((start_minutes, end_minutes))
+        time_windows.append((dest_start, dest_end))
         
         return time_windows
     
@@ -239,7 +241,7 @@ class RouteOptimizer:
         def distance_callback(from_index, to_index):
             from_node = manager.IndexToNode(from_index)
             to_node = manager.IndexToNode(to_index)
-            return data['distance_matrix'][from_node][to_node]
+            return int(data['distance_matrix'][from_node][to_node] * 100)
         
         transit_callback_index = routing.RegisterTransitCallback(distance_callback)
         routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
@@ -255,11 +257,37 @@ class RouteOptimizer:
         # 時間次元を追加
         routing.AddDimension(
             time_callback_index,
-            30,  # 待機時間の最大値（分）
-            300,  # 車両の最大時間（分）
+            60,  # 待機時間の最大値（60分）
+            480,  # 車両の最大時間（8時間）
             False,  # 0から開始
             'Time'
         )
+        
+        # 時間窓制約を追加
+        time_dimension = routing.GetDimensionOrDie('Time')
+        
+        # すべての場所に時間窓を設定
+        for location_idx in range(1, len(data['time_windows'])):
+            index = manager.NodeToIndex(location_idx)
+            time_window = data['time_windows'][location_idx]
+            time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
+        
+        # 重要：すべてのゲストを目的地より前に訪問する制約
+        destination_index = data['destination']
+        dest_node_index = manager.NodeToIndex(destination_index)
+        
+        # 各ゲストは目的地より前に訪問される必要がある
+        for guest_idx in range(1, data['num_guests'] + 1):
+            guest_node_index = manager.NodeToIndex(guest_idx)
+            # ゲストのピックアップ時刻 < 目的地到着時刻
+            routing.solver().Add(
+                time_dimension.CumulVar(guest_node_index) < 
+                time_dimension.CumulVar(dest_node_index)
+            )
+        
+        # すべてのゲストを必ずピックアップする
+        for guest_idx in range(1, data['num_guests'] + 1):
+            routing.AddDisjunction([manager.NodeToIndex(guest_idx)], 100000)
         
         # 容量制約
         def demand_callback(from_index):
@@ -268,13 +296,9 @@ class RouteOptimizer:
         
         demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
         
-        # 容量制約を少し緩める（スラックを追加）
-        slack_max = 2  # 最大2名分の余裕を持たせる
-        capacity_slack = slack_max if len(data['distance_matrix']) > 20 else 0
-        
         routing.AddDimensionWithVehicleCapacity(
             demand_callback_index,
-            capacity_slack,  # null capacity slack -> 動的に調整
+            0,  # null capacity slack
             data['vehicle_capacities'],
             True,  # start cumul to zero
             'Capacity'
@@ -286,14 +310,11 @@ class RouteOptimizer:
             strategy, 
             self.solution_strategies['balanced']
         )
-        # 時間制限を増やす
         search_parameters.time_limit.seconds = 30
-        # ソルバーログを有効化（デバッグ用）
         search_parameters.log_search = False
         
         # 大規模問題用の追加設定
         if len(data['distance_matrix']) > 20:
-            # より効率的な探索戦略を使用
             search_parameters.local_search_metaheuristic = (
                 routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
             )
@@ -302,26 +323,14 @@ class RouteOptimizer:
         # 問題を解く
         solution = routing.SolveWithParameters(search_parameters)
         
-        # 解の状態をチェック
         if solution:
             logger.info(f"Solution found! Status: {routing.status()}")
             self._manager = manager
             self._routing = routing
             return solution
         else:
-            # ステータスコードで原因を特定
             status = routing.status()
             logger.warning(f"No solution found. Status code: {status}")
-            
-            if status == 1:  # ROUTING_NOT_SOLVED
-                logger.error("Problem not solved: might be infeasible")
-            elif status == 2:  # ROUTING_FAIL
-                logger.error("No solution found after exhaustive search")
-            elif status == 3:  # ROUTING_FAIL_TIMEOUT
-                logger.error("Time limit reached before finding solution")
-            elif status == 4:  # ROUTING_INVALID
-                logger.error("Model or parameters are invalid")
-                
             return None
     
     def _format_solution(self, 
@@ -346,35 +355,40 @@ class RouteOptimizer:
             vehicle_time = 0
             
             index = self._routing.Start(vehicle_idx)
-            previous_index = index
+            
+            # 時間次元を取得
+            time_dimension = self._routing.GetDimensionOrDie('Time')
             
             while not self._routing.IsEnd(index):
                 node = self._manager.IndexToNode(index)
                 next_index = solution.Value(self._routing.NextVar(index))
-                next_node = self._manager.IndexToNode(next_index)
                 
                 if not self._routing.IsEnd(next_index):
+                    next_node = self._manager.IndexToNode(next_index)
+                    
                     # セグメント情報を作成
                     distance = data['distance_matrix'][node][next_node]
                     duration = data['time_matrix'][node][next_node]
                     
-                    # 時刻計算（累積時間を正しく取得）
-                    time_dimension = self._routing.GetDimensionOrDie('Time')
-                    arrival_time_var = time_dimension.CumulVar(index)
-                    departure_time_var = time_dimension.CumulVar(next_index)
+                    # 現在のノードの累積時間を取得
+                    time_var = time_dimension.CumulVar(index)
+                    current_time_minutes = solution.Value(time_var)
                     
-                    arrival_minutes = solution.Value(arrival_time_var)
-                    departure_minutes = solution.Value(departure_time_var)
+                    # 次のノードの累積時間を取得
+                    next_time_var = time_dimension.CumulVar(next_index)
+                    next_time_minutes = solution.Value(next_time_var)
                     
-                    arrival_time = (base_time + timedelta(minutes=arrival_minutes)).time()
-                    departure_time = (base_time + timedelta(minutes=arrival_minutes + 5)).time()
+                    # 時刻を計算
+                    departure_time = (base_time + timedelta(minutes=current_time_minutes)).time()
+                    arrival_time = (base_time + timedelta(minutes=next_time_minutes)).time()
                     
-                    # ゲストの特定
+                    # ゲストの特定（目的地ではないノードの場合）
                     guest_id = None
-                    if 0 < next_node < len(data['guests']) + 1:
+                    if 0 < next_node < data['destination']:
                         guest_idx = next_node - 1
-                        guest_id = guests[guest_idx].id
-                        assigned_guests.append(guest_id)
+                        if guest_idx < len(guests):
+                            guest_id = guests[guest_idx].id
+                            assigned_guests.append(guest_id)
                     
                     # 実際の位置情報を取得
                     from_lat, from_lng = data['locations'][node]
@@ -402,17 +416,17 @@ class RouteOptimizer:
                     vehicle_distance += distance
                     vehicle_time += duration
                 
-                previous_index = index
                 index = next_index
             
             if route_segments:  # ルートがある場合のみ追加
-                # 効率性スコアを計算
-                capacity_var = self._routing.GetDimensionOrDie('Capacity').CumulVar(
-                    self._routing.End(vehicle_idx)
-                )
-                used_capacity = solution.Value(capacity_var)
-                vehicle_utilization = used_capacity / vehicle.total_capacity
+                # 実際に乗車している人数を計算
+                total_passengers = 0
+                for guest_id in assigned_guests:
+                    guest = next((g for g in guests if g.id == guest_id), None)
+                    if guest:
+                        total_passengers += guest.total_passengers
                 
+                vehicle_utilization = total_passengers / vehicle.total_capacity if vehicle.total_capacity > 0 else 0
                 efficiency_score = min(1.0, vehicle_utilization * 0.8 + 0.2)
                 
                 vehicle_route = VehicleRoute(

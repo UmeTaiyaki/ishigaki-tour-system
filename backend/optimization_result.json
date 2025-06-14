@@ -1,0 +1,118 @@
+{
+  "tour_id": "tour_20250614174129",
+  "status": "success",
+  "total_vehicles_used": 1,
+  "routes": [
+    {
+      "vehicle_id": "f8a7bbe3-87b4-45f7-9ba1-50a4b757393e",
+      "vehicle_name": "バン2",
+      "route_segments": [
+        {
+          "from_location": {
+            "name": "Depot",
+            "lat": 24.3448,
+            "lng": 124.1572
+          },
+          "to_location": {
+            "name": "アートホテル",
+            "lat": 24.3378,
+            "lng": 124.1561
+          },
+          "guest_id": "4aa1a21a-ce53-4487-9c94-33b247949576",
+          "distance_km": 0.79,
+          "duration_minutes": 2,
+          "arrival_time": "07:30:00",
+          "departure_time": "06:28:00"
+        },
+        {
+          "from_location": {
+            "name": "アートホテル",
+            "lat": 24.3378,
+            "lng": 124.1561
+          },
+          "to_location": {
+            "name": "フサキビーチリゾート",
+            "lat": 24.3667,
+            "lng": 124.1389
+          },
+          "guest_id": "1a80cd57-9f26-45af-82bb-2bf324650c61",
+          "distance_km": 3.66,
+          "duration_minutes": 7,
+          "arrival_time": "07:37:00",
+          "departure_time": "07:30:00"
+        },
+        {
+          "from_location": {
+            "name": "フサキビーチリゾート",
+            "lat": 24.3667,
+            "lng": 124.1389
+          },
+          "to_location": {
+            "name": "ANAインターコンチネンタル",
+            "lat": 24.3969,
+            "lng": 124.1531
+          },
+          "guest_id": "4e70ad1f-39c7-4962-806d-aaacb7227935",
+          "distance_km": 3.65,
+          "duration_minutes": 7,
+          "arrival_time": "07:44:00",
+          "departure_time": "07:37:00"
+        },
+        {
+          "from_location": {
+            "name": "ANAインターコンチネンタル",
+            "lat": 24.3969,
+            "lng": 124.1531
+          },
+          "to_location": {
+            "name": "グランヴィリオリゾート",
+            "lat": 24.4086,
+            "lng": 124.1639
+          },
+          "guest_id": "8d5f6a7b-48b9-41e7-9974-5f70e4c85722",
+          "distance_km": 1.7,
+          "duration_minutes": 3,
+          "arrival_time": "07:47:00",
+          "departure_time": "07:44:00"
+        },
+        {
+          "from_location": {
+            "name": "グランヴィリオリゾート",
+            "lat": 24.4086,
+            "lng": 124.1639
+          },
+          "to_location": {
+            "name": "川平湾",
+            "lat": 24.4526,
+            "lng": 124.1456
+          },
+          "guest_id": null,
+          "distance_km": 5.23,
+          "duration_minutes": 10,
+          "arrival_time": "08:30:00",
+          "departure_time": "07:47:00"
+        }
+      ],
+      "assigned_guests": [
+        "4aa1a21a-ce53-4487-9c94-33b247949576",
+        "1a80cd57-9f26-45af-82bb-2bf324650c61",
+        "4e70ad1f-39c7-4962-806d-aaacb7227935",
+        "8d5f6a7b-48b9-41e7-9974-5f70e4c85722"
+      ],
+      "total_distance_km": 15.03,
+      "total_duration_minutes": 29,
+      "efficiency_score": 0.82,
+      "vehicle_utilization": 0.77
+    }
+  ],
+  "total_distance_km": 15.03,
+  "total_time_minutes": 29,
+  "average_efficiency_score": 0.82,
+  "optimization_metrics": {
+    "solver_status": 1,
+    "total_guests": 4,
+    "strategy": "efficiency"
+  },
+  "warnings": [],
+  "computation_time_seconds": 0.026751
+}

@@ -1,56 +1,26 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
 import sys
 import os
+import traceback
 
 # プロジェクトルートをPythonパスに追加
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# インポートのデバッグ
-print(f"Python path: {sys.path}")
-print(f"Current directory: {os.getcwd()}")
-
-try:
-    from app.core.config import settings
-    print("✅ Successfully imported settings")
-except ImportError as e:
-    print(f"❌ Failed to import settings: {e}")
-    # フォールバック設定
-    class Settings:
-        API_V1_STR = "/api/v1"
-        PROJECT_NAME = "石垣島ツアー最適化システム"
-        VERSION = "0.1.0"
-        BACKEND_CORS_ORIGINS = ["http://localhost:3000", "http://localhost:8000"]
-        LOG_LEVEL = "INFO"
-    settings = Settings()
-
-try:
-    from app.api.v1.api import api_router
-    print("✅ Successfully imported api_router")
-except ImportError as e:
-    print(f"❌ Failed to import api_router: {e}")
-    # フォールバックルーター
-    from fastapi import APIRouter
-    api_router = APIRouter()
-    
-    # optimize エンドポイントを直接インポート
-    try:
-        from app.api.v1.endpoints import optimize
-        api_router.include_router(
-            optimize.router,
-            prefix="/optimize",
-            tags=["optimization"]
-        )
-        print("✅ Successfully imported optimize endpoints")
-    except ImportError as e:
-        print(f"❌ Failed to import optimize endpoints: {e}")
+# 設定のインポート
+from app.core.config import settings
+from app.api.v1.api import api_router
 
 # ロギング設定
 logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -79,14 +49,31 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    openapi_url="/openapi.json",  # シンプルなパスに変更
-    docs_url="/docs",  # 明示的に指定
-    redoc_url="/redoc",  # ReDocも追加
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    docs_url=f"{settings.API_V1_STR}/docs",
+    redoc_url=f"{settings.API_V1_STR}/redoc",
     lifespan=lifespan
 )
 
+# エラーハンドリングミドルウェア
+@app.middleware("http")
+async def catch_exceptions_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        # エラーの詳細をログに出力
+        logger.error(f"Unhandled exception: {str(e)}")
+        logger.error(f"Request path: {request.url.path}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        # クライアントには簡潔なエラーメッセージを返す
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Internal Server Error: {str(e)}"}
+        )
+
 # CORS設定
-if hasattr(settings, 'BACKEND_CORS_ORIGINS') and settings.BACKEND_CORS_ORIGINS:
+if settings.BACKEND_CORS_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.BACKEND_CORS_ORIGINS,
@@ -106,7 +93,8 @@ async def root():
     return {
         "message": f"Welcome to {settings.PROJECT_NAME}",
         "version": settings.VERSION,
-        "docs": f"{settings.API_V1_STR}/docs"
+        "docs_url": f"{settings.API_V1_STR}/docs",
+        "openapi_url": f"{settings.API_V1_STR}/openapi.json"
     }
 
 # ヘルスチェック
@@ -121,14 +109,17 @@ async def health_check():
 @app.get("/debug/info")
 async def debug_info():
     """デバッグ用の情報を返す"""
-    import app
+    import app as app_module
     return {
-        "app_path": os.path.dirname(app.__file__),
-        "python_path": sys.path,
+        "app_path": os.path.dirname(app_module.__file__),
+        "python_path": sys.path[:5],  # 最初の5つのパス
         "current_dir": os.getcwd(),
-        "modules": list(sys.modules.keys())[:20]  # 最初の20モジュール
+        "api_prefix": settings.API_V1_STR,
+        "docs_url": app.docs_url,
+        "openapi_url": app.openapi_url,
+        "routes": [{"path": route.path, "name": route.name} for route in app.routes if hasattr(route, 'path')]
     }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")

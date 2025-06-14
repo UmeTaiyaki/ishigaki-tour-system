@@ -11,12 +11,14 @@ from app.schemas.optimization import (
     Guest,
     Vehicle,
     Location,
-    TimeWindow
+    TimeWindow,
+    VehicleRoute,
+    RouteSegment
 )
 
 logger = logging.getLogger(__name__)
 
-# ルーターを作成（これが重要！）
+# ルーターを作成
 router = APIRouter()
 
 # 一時的なメモリストレージ（後でRedisやDBに置き換え）
@@ -104,7 +106,7 @@ async def get_optimization_result(job_id: str):
     return job_status.result
 
 
-async def run_optimization(job_id: str, request: OptimizationRequest):
+def run_optimization(job_id: str, request: OptimizationRequest):
     """
     最適化を実行する
     """
@@ -183,7 +185,7 @@ def create_sample_vehicles(vehicle_ids: List[str]) -> List[Vehicle]:
     
     for i, vehicle_id in enumerate(vehicle_ids):
         if i % 3 == 0:
-            # 大型バス（より多くの容量）
+            # 大型バス
             vehicle = Vehicle(
                 id=vehicle_id,
                 name=f"大型バス{i+1}",
@@ -218,6 +220,44 @@ def create_sample_vehicles(vehicle_ids: List[str]) -> List[Vehicle]:
         vehicles.append(vehicle)
     
     return vehicles
+
+
+def create_dummy_result(request: OptimizationRequest) -> OptimizationResult:
+    """ダミーの最適化結果を生成（テスト用）"""
+    # 簡単なダミールートを作成
+    dummy_route = VehicleRoute(
+        vehicle_id=request.available_vehicle_ids[0] if request.available_vehicle_ids else "dummy_vehicle",
+        vehicle_name="テスト車両1",
+        route_segments=[
+            RouteSegment(
+                from_location=Location(name="車両基地", lat=24.3448, lng=124.1572),
+                to_location=request.destination,
+                guest_id=None,
+                distance_km=10.5,
+                duration_minutes=20,
+                arrival_time=time(9, 0),
+                departure_time=time(9, 5)
+            )
+        ],
+        assigned_guests=request.participant_ids,
+        total_distance_km=10.5,
+        total_duration_minutes=20,
+        efficiency_score=0.8,
+        vehicle_utilization=0.75
+    )
+    
+    return OptimizationResult(
+        tour_id=f"tour_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        status="success",
+        total_vehicles_used=1,
+        routes=[dummy_route],
+        total_distance_km=10.5,
+        total_time_minutes=20,
+        average_efficiency_score=0.8,
+        optimization_metrics={"dummy": True},
+        warnings=["これはテスト用のダミー結果です"],
+        computation_time_seconds=0.1
+    )
 
 
 @router.get("/test-data")
