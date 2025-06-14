@@ -1,0 +1,16 @@
+[
+  {
+    "size": 5,
+    "avg_time": 0.0016462,
+    "max_time": 0.008231,
+    "avg_distance": 15.03,
+    "success_rate": 1.0
+  },
+  {
+    "size": 10,
+    "avg_time": 0.0019146,
+    "max_time": 0.005007,
+    "avg_distance": 15.03,
+    "success_rate": 1.0
+  }
+]

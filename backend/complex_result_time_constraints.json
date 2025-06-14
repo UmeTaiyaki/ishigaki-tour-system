@@ -1,0 +1,208 @@
+{
+  "tour_id": "tour_20250614235514",
+  "status": "success",
+  "total_vehicles_used": 1,
+  "routes": [
+    {
+      "vehicle_id": "689cf5d3-2a1c-49ca-89d8-8187214e201c",
+      "vehicle_name": "大型バス1",
+      "route_segments": [
+        {
+          "from_location": {
+            "name": "Depot",
+            "lat": 24.3448,
+            "lng": 124.1572
+          },
+          "to_location": {
+            "name": "アートホテル",
+            "lat": 24.3378,
+            "lng": 124.1561
+          },
+          "guest_id": "96d96bab-917a-46f1-a32f-53ab1c962965",
+          "distance_km": 0.79,
+          "duration_minutes": 2,
+          "arrival_time": "07:30:00",
+          "departure_time": "06:28:00"
+        },
+        {
+          "from_location": {
+            "name": "アートホテル",
+            "lat": 24.3378,
+            "lng": 124.1561
+          },
+          "to_location": {
+            "name": "アートホテル",
+            "lat": 24.3378,
+            "lng": 124.1561
+          },
+          "guest_id": "b6a8bda5-806c-42b4-8a65-36435237b913",
+          "distance_km": 0.0,
+          "duration_minutes": 0,
+          "arrival_time": "07:30:00",
+          "departure_time": "07:30:00"
+        },
+        {
+          "from_location": {
+            "name": "アートホテル",
+            "lat": 24.3378,
+            "lng": 124.1561
+          },
+          "to_location": {
+            "name": "フサキビーチリゾート",
+            "lat": 24.3667,
+            "lng": 124.1389
+          },
+          "guest_id": "83c62894-b0c0-41ce-9eb8-2a2cf2ff98ca",
+          "distance_km": 3.66,
+          "duration_minutes": 7,
+          "arrival_time": "07:37:00",
+          "departure_time": "07:30:00"
+        },
+        {
+          "from_location": {
+            "name": "フサキビーチリゾート",
+            "lat": 24.3667,
+            "lng": 124.1389
+          },
+          "to_location": {
+            "name": "フサキビーチリゾート",
+            "lat": 24.3667,
+            "lng": 124.1389
+          },
+          "guest_id": "81727621-5cb8-48be-88cf-619f5f96831a",
+          "distance_km": 0.0,
+          "duration_minutes": 0,
+          "arrival_time": "07:37:00",
+          "departure_time": "07:37:00"
+        },
+        {
+          "from_location": {
+            "name": "フサキビーチリゾート",
+            "lat": 24.3667,
+            "lng": 124.1389
+          },
+          "to_location": {
+            "name": "ANAインターコンチネンタル",
+            "lat": 24.3969,
+            "lng": 124.1531
+          },
+          "guest_id": "b5f53f7c-c532-431e-b49b-121fb4bdd47f",
+          "distance_km": 3.65,
+          "duration_minutes": 7,
+          "arrival_time": "07:44:00",
+          "departure_time": "07:37:00"
+        },
+        {
+          "from_location": {
+            "name": "ANAインターコンチネンタル",
+            "lat": 24.3969,
+            "lng": 124.1531
+          },
+          "to_location": {
+            "name": "ANAインターコンチネンタル",
+            "lat": 24.3969,
+            "lng": 124.1531
+          },
+          "guest_id": "ab4fc1e8-3931-431a-ae01-2b6c840e6d46",
+          "distance_km": 0.0,
+          "duration_minutes": 0,
+          "arrival_time": "07:44:00",
+          "departure_time": "07:44:00"
+        },
+        {
+          "from_location": {
+            "name": "ANAインターコンチネンタル",
+            "lat": 24.3969,
+            "lng": 124.1531
+          },
+          "to_location": {
+            "name": "ANAインターコンチネンタル",
+            "lat": 24.3969,
+            "lng": 124.1531
+          },
+          "guest_id": "128a7b00-b00d-4bde-9151-f90d7352e4a8",
+          "distance_km": 0.0,
+          "duration_minutes": 0,
+          "arrival_time": "07:44:00",
+          "departure_time": "07:44:00"
+        },
+        {
+          "from_location": {
+            "name": "ANAインターコンチネンタル",
+            "lat": 24.3969,
+            "lng": 124.1531
+          },
+          "to_location": {
+            "name": "グランヴィリオリゾート",
+            "lat": 24.4086,
+            "lng": 124.1639
+          },
+          "guest_id": "d73fcbc8-d7b5-4fd5-b622-956600d5ec44",
+          "distance_km": 1.7,
+          "duration_minutes": 3,
+          "arrival_time": "07:47:00",
+          "departure_time": "07:44:00"
+        },
+        {
+          "from_location": {
+            "name": "グランヴィリオリゾート",
+            "lat": 24.4086,
+            "lng": 124.1639
+          },
+          "to_location": {
+            "name": "グランヴィリオリゾート",
+            "lat": 24.4086,
+            "lng": 124.1639
+          },
+          "guest_id": "f0b7f6f0-cfcf-4e08-841d-21984d7670b2",
+          "distance_km": 0.0,
+          "duration_minutes": 0,
+          "arrival_time": "07:47:00",
+          "departure_time": "07:47:00"
+        },
+        {
+          "from_location": {
+            "name": "グランヴィリオリゾート",
+            "lat": 24.4086,
+            "lng": 124.1639
+          },
+          "to_location": {
+            "name": "川平湾",
+            "lat": 24.4526,
+            "lng": 124.1456
+          },
+          "guest_id": null,
+          "distance_km": 5.23,
+          "duration_minutes": 10,
+          "arrival_time": "08:30:00",
+          "departure_time": "07:47:00"
+        }
+      ],
+      "assigned_guests": [
+        "96d96bab-917a-46f1-a32f-53ab1c962965",
+        "b6a8bda5-806c-42b4-8a65-36435237b913",
+        "83c62894-b0c0-41ce-9eb8-2a2cf2ff98ca",
+        "81727621-5cb8-48be-88cf-619f5f96831a",
+        "b5f53f7c-c532-431e-b49b-121fb4bdd47f",
+        "ab4fc1e8-3931-431a-ae01-2b6c840e6d46",
+        "128a7b00-b00d-4bde-9151-f90d7352e4a8",
+        "d73fcbc8-d7b5-4fd5-b622-956600d5ec44",
+        "f0b7f6f0-cfcf-4e08-841d-21984d7670b2"
+      ],
+      "total_distance_km": 15.03,
+      "total_duration_minutes": 29,
+      "efficiency_score": 0.87,
+      "vehicle_utilization": 0.84
+    }
+  ],
+  "total_distance_km": 15.03,
+  "total_time_minutes": 29,
+  "average_efficiency_score": 0.87,
+  "optimization_metrics": {
+    "solver_status": 1,
+    "total_guests": 9,
+    "strategy": "balanced"
+  },
+  "warnings": [],
+  "computation_time_seconds": 0.068552
+}
