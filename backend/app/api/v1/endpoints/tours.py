@@ -308,6 +308,7 @@ async def optimize_tour(
         )
     
     optimization_request = OptimizationRequest(
+        tour_id=str(tour_id),  # tour_idを追加
         tour_date=tour.tour_date,
         activity_type=tour.activity_type.value,
         destination=Location(
@@ -346,7 +347,8 @@ async def optimize_tour(
         background_tasks.add_task(
             run_optimization,
             job_id=job_id,
-            request=optimization_request
+            request=optimization_request,
+            db=db  # DBセッションを渡す
         )
         
         return {
@@ -372,3 +374,59 @@ async def optimize_tour(
             status_code=500,
             detail=f"Failed to start optimization: {str(e)}"
         )
+
+
+@router.get("/{tour_id}/optimization-result", response_model=dict)
+def get_tour_optimization_result(
+    tour_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    ツアーの最適化結果を取得
+    """
+    from app.crud.optimization_result import optimization_result as crud_optimization_result
+    
+    tour = crud_tour.get(db=db, tour_id=tour_id)
+    if not tour:
+        raise HTTPException(status_code=404, detail="Tour not found")
+    
+    # 最適化結果を取得
+    optimized_routes = crud_optimization_result.get_by_tour_id(db, tour_id)
+    
+    if not optimized_routes:
+        raise HTTPException(
+            status_code=404,
+            detail="No optimization result found for this tour"
+        )
+    
+    # 結果を整形
+    routes = []
+    total_distance = 0
+    total_time = 0
+    
+    for route in optimized_routes:
+        route_data = route.route_data or {}
+        routes.append({
+            "vehicle_id": str(route.vehicle_id),
+            "vehicle_name": route_data.get("vehicle_name", "Unknown"),
+            "route_order": route.route_order,
+            "total_distance_km": route.total_distance_km,
+            "total_time_minutes": route.total_time_minutes,
+            "efficiency_score": route.efficiency_score,
+            "segments": route_data.get("segments", []),
+            "assigned_guests": route_data.get("assigned_guests", [])
+        })
+        total_distance += route.total_distance_km or 0
+        total_time = max(total_time, route.total_time_minutes or 0)
+    
+    return {
+        "tour_id": str(tour_id),
+        "tour_date": tour.tour_date.isoformat(),
+        "destination": tour.destination_name,
+        "status": tour.status.value,
+        "routes": routes,
+        "total_vehicles_used": len(routes),
+        "total_distance_km": total_distance,
+        "total_time_minutes": total_time,
+        "optimized_at": optimized_routes[0].created_at.isoformat() if optimized_routes else None
+    }

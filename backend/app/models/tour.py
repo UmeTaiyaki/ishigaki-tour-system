@@ -2,11 +2,12 @@
 ツアーモデル
 """
 
-from sqlalchemy import Column, String, Float, Date, Time, Enum, JSON
+from sqlalchemy import Column, String, Float, Date, Time, Enum, JSON, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
 import enum
+from datetime import datetime
 
 from app.models.database import Base
 
@@ -40,6 +41,8 @@ class Tour(Base):
     status = Column(Enum(TourStatus), default=TourStatus.planning)
     optimization_strategy = Column(String(20), default="balanced")
     weather_data = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # リレーションシップ
     participants = relationship("TourParticipant", back_populates="tour", cascade="all, delete-orphan")
@@ -57,5 +60,7 @@ class Tour(Base):
             "departure_time": self.departure_time.isoformat() if self.departure_time else None,
             "status": self.status.value if self.status else None,
             "optimization_strategy": self.optimization_strategy,
-            "weather_data": self.weather_data
+            "weather_data": self.weather_data,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }

@@ -1,9 +1,12 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from typing import Dict, List
 import uuid
+from uuid import UUID  # これを追加
 from datetime import datetime, time
 import logging
+from sqlalchemy.orm import Session
 
+from app.models.database import get_db
 from app.schemas.optimization import (
     OptimizationRequest,
     OptimizationResult,
@@ -15,6 +18,7 @@ from app.schemas.optimization import (
     VehicleRoute,
     RouteSegment
 )
+from app.crud.optimization_result import optimization_result as crud_optimization_result
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +48,8 @@ def get_optimizer():
 @router.post("/route", response_model=OptimizationJobStatus)
 async def optimize_route(
     request: OptimizationRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)  # DBセッション追加
 ):
     """
     ツアールートの最適化を開始する
@@ -70,7 +75,8 @@ async def optimize_route(
     background_tasks.add_task(
         run_optimization,
         job_id=job_id,
-        request=request
+        request=request,
+        db=db  # DBセッションを渡す
     )
     
     logger.info(f"Optimization job started: {job_id}")
@@ -106,9 +112,9 @@ async def get_optimization_result(job_id: str):
     return job_status.result
 
 
-def run_optimization(job_id: str, request: OptimizationRequest):
+def run_optimization(job_id: str, request: OptimizationRequest, db: Session):
     """
-    最適化を実行する
+    最適化を実行する（DBセッション付き）
     """
     try:
         # ステータス更新
@@ -129,6 +135,32 @@ def run_optimization(job_id: str, request: OptimizationRequest):
         else:
             # フォールバック：仮の結果を生成
             result = create_dummy_result(request)
+        
+        # 結果をDBに保存
+        if hasattr(request, 'tour_id') and request.tour_id:
+            tour_id = UUID(request.tour_id)
+        else:
+            # tour_idが含まれていない場合は、tour_dateとactivity_typeから特定
+            from app.crud.tour import tour as crud_tour
+            tours = crud_tour.get_multi(
+                db, 
+                tour_date=request.tour_date,
+                limit=1
+            )
+            if tours:
+                tour_id = tours[0].id
+            else:
+                # 新規ツアーとして処理する場合
+                logger.warning("No tour_id provided and no matching tour found")
+                tour_id = None
+        
+        if tour_id and result.status == "success":
+            saved_routes = crud_optimization_result.save_result(
+                db, 
+                tour_id,
+                result
+            )
+            logger.info(f"Saved {len(saved_routes)} routes to database for tour {tour_id}")
         
         # 結果を保存
         optimization_jobs[job_id].status = "completed"

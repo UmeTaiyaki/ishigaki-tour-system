@@ -2,10 +2,11 @@
 最適化結果モデル
 """
 
-from sqlalchemy import Column, Integer, Float, ForeignKey, JSON
+from sqlalchemy import Column, Integer, Float, ForeignKey, JSON, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
+from datetime import datetime
 
 from app.models.database import Base
 
@@ -21,6 +22,7 @@ class OptimizedRoute(Base):
     total_time_minutes = Column(Integer)
     efficiency_score = Column(Float)
     route_data = Column(JSON)  # 詳細なルート情報
+    created_at = Column(DateTime, default=datetime.utcnow)  # created_atを追加
     
     # リレーションシップ
     tour = relationship("Tour", back_populates="optimized_routes")
@@ -36,5 +38,6 @@ class OptimizedRoute(Base):
             "total_distance_km": self.total_distance_km,
             "total_time_minutes": self.total_time_minutes,
             "efficiency_score": self.efficiency_score,
-            "route_data": self.route_data
+            "route_data": self.route_data,
+            "created_at": self.created_at.isoformat() if self.created_at else None
         }

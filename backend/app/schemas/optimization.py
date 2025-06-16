@@ -66,6 +66,7 @@ class OptimizationConstraints(BaseModel):
 
 class OptimizationRequest(BaseModel):
     """最適化リクエスト"""
+    tour_id: Optional[str] = None  # tour_idを追加（オプショナル）
     tour_date: date
     activity_type: Literal["snorkeling", "diving", "sightseeing", "kayaking", "fishing"]
     destination: Location
