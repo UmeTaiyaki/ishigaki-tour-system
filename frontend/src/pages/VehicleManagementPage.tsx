@@ -24,9 +24,9 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Stack
 } from '@mui/material';
-import { Grid2 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -124,42 +124,26 @@ export const VehicleManagementPage: React.FC = () => {
       } else {
         await api.post('/vehicles', payload);
       }
-      
+
       setOpenDialog(false);
-      await loadVehicles();
       resetForm();
-    } catch (error: any) {
-      console.error('Failed to save vehicle:', error);
-      setError('車両の保存に失敗しました');
+      loadVehicles();
+    } catch (err: any) {
+      setError(err.response?.data?.message || '保存に失敗しました');
+      console.error('Error saving vehicle:', err);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('この車両を削除しますか？\n進行中のツアーがある場合は削除できません。')) {
-      try {
-        await api.delete(`/vehicles/${id}`);
-        await loadVehicles();
-      } catch (error: any) {
-        console.error('Failed to delete vehicle:', error);
-        setError('車両の削除に失敗しました。使用中の可能性があります。');
-      }
-    }
-  };
+    if (!window.confirm('この車両を削除しますか？')) return;
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      capacity_adults: 8,
-      capacity_children: 3,
-      driver_name: '',
-      driver_phone: '',
-      vehicle_type: 'van',
-      status: 'available',
-      equipment: [],
-      license_plate: '',
-      fuel_type: 'gasoline'
-    });
-    setEditingVehicle(null);
+    try {
+      await api.delete(`/vehicles/${id}`);
+      loadVehicles();
+    } catch (err: any) {
+      setError('削除に失敗しました');
+      console.error('Error deleting vehicle:', err);
+    }
   };
 
   const handleEdit = (vehicle: Vehicle) => {
@@ -191,22 +175,25 @@ export const VehicleManagementPage: React.FC = () => {
     }
   };
 
-  const getTotalCapacity = (vehicle: Vehicle) => {
-    return vehicle.capacity_adults + vehicle.capacity_children;
+  const resetForm = () => {
+    setEditingVehicle(null);
+    setFormData({
+      name: '',
+      capacity_adults: 8,
+      capacity_children: 3,
+      driver_name: '',
+      driver_phone: '',
+      vehicle_type: 'van',
+      status: 'available',
+      equipment: [],
+      license_plate: '',
+      fuel_type: 'gasoline'
+    });
   };
 
   const getStatusChip = (status?: string) => {
-    const statusOption = statusOptions.find(opt => opt.value === status);
-    if (!statusOption) return null;
-    
-    return (
-      <Chip
-        label={statusOption.label}
-        color={statusOption.color}
-        size="small"
-        icon={status === 'available' ? <ActiveIcon /> : status === 'maintenance' ? <InactiveIcon /> : undefined}
-      />
-    );
+    const option = statusOptions.find(opt => opt.value === status) || statusOptions[0];
+    return <Chip label={option.label} color={option.color} size="small" />;
   };
 
   if (loading) {
@@ -218,275 +205,239 @@ export const VehicleManagementPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Paper sx={{ p: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5" component="h1">
-            車両管理
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setOpenDialog(true)}
-          >
-            新規車両登録
-          </Button>
-        </Box>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">車両管理</Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            resetForm();
+            setOpenDialog(true);
+          }}
+        >
+          新規車両
+        </Button>
+      </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>車両名</TableCell>
-                <TableCell>タイプ</TableCell>
-                <TableCell align="center">定員</TableCell>
-                <TableCell>ドライバー</TableCell>
-                <TableCell>装備</TableCell>
-                <TableCell align="center">状態</TableCell>
-                <TableCell align="center">アクション</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {vehicles.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    車両が登録されていません
-                  </TableCell>
-                </TableRow>
-              ) : (
-                vehicles.map((vehicle) => (
-                  <TableRow key={vehicle.id} hover>
-                    <TableCell>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <CarIcon fontSize="small" color="action" />
-                        <Box>
-                          <Typography variant="body2">{vehicle.name}</Typography>
-                          {vehicle.license_plate && (
-                            <Typography variant="caption" color="text.secondary">
-                              {vehicle.license_plate}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      {vehicleTypes.find(vt => vt.value === vehicle.vehicle_type)?.label || vehicle.vehicle_type}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="body2">
-                        {getTotalCapacity(vehicle)}名
-                      </Typography>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>車両名</TableCell>
+              <TableCell>タイプ</TableCell>
+              <TableCell align="center">定員（大人/子供）</TableCell>
+              <TableCell>ドライバー</TableCell>
+              <TableCell>装備</TableCell>
+              <TableCell align="center">ステータス</TableCell>
+              <TableCell align="center">操作</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {vehicles.map((vehicle) => (
+              <TableRow key={vehicle.id}>
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CarIcon fontSize="small" />
+                    {vehicle.name}
+                    {vehicle.license_plate && (
                       <Typography variant="caption" color="text.secondary">
-                        (大人{vehicle.capacity_adults}/子供{vehicle.capacity_children})
+                        ({vehicle.license_plate})
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {vehicle.driver_name && (
-                        <>
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <DriverIcon fontSize="small" color="action" />
-                            {vehicle.driver_name}
-                          </Box>
-                          {vehicle.driver_phone && (
-                            <Box display="flex" alignItems="center" gap={1} mt={0.5}>
-                              <PhoneIcon fontSize="small" color="action" />
-                              <Typography variant="caption">{vehicle.driver_phone}</Typography>
-                            </Box>
-                          )}
-                        </>
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  {vehicleTypes.find(vt => vt.value === vehicle.vehicle_type)?.label || '-'}
+                </TableCell>
+                <TableCell align="center">
+                  {vehicle.capacity_adults}/{vehicle.capacity_children}
+                </TableCell>
+                <TableCell>
+                  {vehicle.driver_name && (
+                    <Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <DriverIcon fontSize="small" />
+                        <Typography variant="body2">{vehicle.driver_name}</Typography>
+                      </Box>
+                      {vehicle.driver_phone && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <PhoneIcon fontSize="small" />
+                          <Typography variant="caption">{vehicle.driver_phone}</Typography>
+                        </Box>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      {vehicle.equipment?.map((eq, idx) => (
-                        <Chip
-                          key={idx}
-                          label={eq}
-                          size="small"
-                          variant="outlined"
-                          sx={{ mr: 0.5, mb: 0.5 }}
-                        />
-                      ))}
-                    </TableCell>
-                    <TableCell align="center">
-                      {getStatusChip(vehicle.status)}
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEdit(vehicle)}
-                        title="編集"
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDelete(vehicle.id)}
-                        title="削除"
-                        color="error"
-                        disabled={vehicle.status === 'in_use'}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                    </Box>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    {vehicle.equipment?.map((eq, index) => (
+                      <Chip key={index} label={eq} size="small" variant="outlined" />
+                    ))}
+                  </Box>
+                </TableCell>
+                <TableCell align="center">
+                  {getStatusChip(vehicle.status)}
+                </TableCell>
+                <TableCell align="center">
+                  <IconButton onClick={() => handleEdit(vehicle)} size="small">
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleDelete(vehicle.id)} size="small" color="error">
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-        {/* 車両登録・編集ダイアログ */}
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {editingVehicle ? '車両情報編集' : '新規車両登録'}
-          </DialogTitle>
-          <DialogContent>
-            <Grid2 container spacing={2} sx={{ mt: 1 }}>
-              <Grid2 size={12}>
-                <TextField
-                  label="車両名"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  fullWidth
-                  required
-                  autoFocus
-                  placeholder="例: ハイエース1号車"
-                />
-              </Grid2>
+      {/* 車両編集ダイアログ */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>{editingVehicle ? '車両編集' : '新規車両登録'}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                fullWidth
+                label="車両名"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
               
-              <Grid2 size={6}>
-                <FormControl fullWidth>
-                  <InputLabel>車両タイプ</InputLabel>
-                  <Select
-                    value={formData.vehicle_type}
-                    onChange={(e) => handleVehicleTypeChange(e.target.value)}
-                    label="車両タイプ"
-                  >
-                    {vehicleTypes.map((type) => (
-                      <MenuItem key={type.value} value={type.value}>
-                        {type.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid2>
-              
-              <Grid2 size={6}>
-                <TextField
-                  label="ナンバープレート"
-                  value={formData.license_plate}
-                  onChange={(e) => setFormData({ ...formData, license_plate: e.target.value })}
-                  fullWidth
-                  placeholder="例: 沖縄500 あ 12-34"
-                />
-              </Grid2>
-              
-              <Grid2 size={6}>
-                <TextField
-                  label="大人定員"
-                  type="number"
-                  value={formData.capacity_adults}
-                  onChange={(e) => setFormData({ ...formData, capacity_adults: parseInt(e.target.value) || 0 })}
-                  fullWidth
-                  InputProps={{ inputProps: { min: 1 } }}
-                />
-              </Grid2>
-              
-              <Grid2 size={6}>
-                <TextField
-                  label="子供定員"
-                  type="number"
-                  value={formData.capacity_children}
-                  onChange={(e) => setFormData({ ...formData, capacity_children: parseInt(e.target.value) || 0 })}
-                  fullWidth
-                  InputProps={{ inputProps: { min: 0 } }}
-                />
-              </Grid2>
-              
-              <Grid2 size={12}>
-                <TextField
-                  label="ドライバー名"
-                  value={formData.driver_name}
-                  onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
-                  fullWidth
-                  placeholder="例: 山田太郎"
-                />
-              </Grid2>
-              
-              <Grid2 size={12}>
-                <TextField
-                  label="ドライバー電話番号"
-                  value={formData.driver_phone}
-                  onChange={(e) => setFormData({ ...formData, driver_phone: e.target.value })}
-                  fullWidth
-                  placeholder="090-1234-5678"
-                />
-              </Grid2>
-              
-              <Grid2 size={12}>
-                <FormControl fullWidth>
-                  <InputLabel>状態</InputLabel>
-                  <Select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    label="状態"
-                  >
-                    {statusOptions.map((status) => (
-                      <MenuItem key={status.value} value={status.value}>
-                        {status.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid2>
-              
-              <Grid2 size={12}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  装備（該当するものをチェック）
-                </Typography>
-                <Box display="flex" flexWrap="wrap" gap={1}>
-                  {equipmentOptions.map((equipment) => (
-                    <Chip
-                      key={equipment}
-                      label={equipment}
-                      onClick={() => {
-                        const newEquipment = formData.equipment.includes(equipment)
-                          ? formData.equipment.filter(eq => eq !== equipment)
-                          : [...formData.equipment, equipment];
-                        setFormData({ ...formData, equipment: newEquipment });
-                      }}
-                      color={formData.equipment.includes(equipment) ? 'primary' : 'default'}
-                      variant={formData.equipment.includes(equipment) ? 'filled' : 'outlined'}
-                      sx={{ cursor: 'pointer' }}
-                    />
+              <TextField
+                fullWidth
+                label="ナンバープレート"
+                value={formData.license_plate}
+                onChange={(e) => setFormData({ ...formData, license_plate: e.target.value })}
+              />
+            </Box>
+            
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel>車両タイプ</InputLabel>
+                <Select
+                  value={formData.vehicle_type}
+                  onChange={(e) => handleVehicleTypeChange(e.target.value)}
+                  label="車両タイプ"
+                >
+                  {vehicleTypes.map((type) => (
+                    <MenuItem key={type.value} value={type.value}>
+                      {type.label}
+                    </MenuItem>
                   ))}
-                </Box>
-              </Grid2>
-            </Grid2>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
-              setOpenDialog(false);
-              resetForm();
-            }}>
-              キャンセル
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              variant="contained"
-              disabled={!formData.name || formData.capacity_adults === 0}
-            >
-              {editingVehicle ? '更新' : '登録'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Paper>
+                </Select>
+              </FormControl>
+              
+              <TextField
+                fullWidth
+                type="number"
+                label="大人定員"
+                value={formData.capacity_adults}
+                onChange={(e) => setFormData({ ...formData, capacity_adults: parseInt(e.target.value) || 0 })}
+                inputProps={{ min: 0 }}
+              />
+              
+              <TextField
+                fullWidth
+                type="number"
+                label="子供定員"
+                value={formData.capacity_children}
+                onChange={(e) => setFormData({ ...formData, capacity_children: parseInt(e.target.value) || 0 })}
+                inputProps={{ min: 0 }}
+              />
+            </Box>
+            
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                fullWidth
+                label="ドライバー名"
+                value={formData.driver_name}
+                onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
+              />
+              
+              <TextField
+                fullWidth
+                label="ドライバー電話番号"
+                value={formData.driver_phone}
+                onChange={(e) => setFormData({ ...formData, driver_phone: e.target.value })}
+              />
+            </Box>
+            
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel>ステータス</InputLabel>
+                <Select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                  label="ステータス"
+                >
+                  {statusOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              <FormControl fullWidth>
+                <InputLabel>燃料タイプ</InputLabel>
+                <Select
+                  value={formData.fuel_type}
+                  onChange={(e) => setFormData({ ...formData, fuel_type: e.target.value })}
+                  label="燃料タイプ"
+                >
+                  <MenuItem value="gasoline">ガソリン</MenuItem>
+                  <MenuItem value="diesel">ディーゼル</MenuItem>
+                  <MenuItem value="hybrid">ハイブリッド</MenuItem>
+                  <MenuItem value="electric">電気</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+            
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>装備</Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {equipmentOptions.map((eq) => (
+                  <Chip
+                    key={eq}
+                    label={eq}
+                    onClick={() => {
+                      if (formData.equipment.includes(eq)) {
+                        setFormData({
+                          ...formData,
+                          equipment: formData.equipment.filter(e => e !== eq)
+                        });
+                      } else {
+                        setFormData({
+                          ...formData,
+                          equipment: [...formData.equipment, eq]
+                        });
+                      }
+                    }}
+                    color={formData.equipment.includes(eq) ? 'primary' : 'default'}
+                    variant={formData.equipment.includes(eq) ? 'filled' : 'outlined'}
+                  />
+                ))}
+              </Box>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)}>キャンセル</Button>
+          <Button onClick={handleSubmit} variant="contained">
+            {editingVehicle ? '更新' : '登録'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

@@ -20,9 +20,9 @@ import {
   Box,
   Typography,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Stack
 } from '@mui/material';
-import { Grid2 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -104,41 +104,26 @@ export const GuestManagementPage: React.FC = () => {
       } else {
         await api.post('/guests', payload);
       }
-      
+
       setOpenDialog(false);
-      await loadGuests();
       resetForm();
-    } catch (error: any) {
-      console.error('Failed to save guest:', error);
-      setError('ゲストの保存に失敗しました');
+      loadGuests();
+    } catch (err: any) {
+      setError(err.response?.data?.message || '保存に失敗しました');
+      console.error('Error saving guest:', err);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('このゲストを削除しますか？\n関連するツアー予約も影響を受ける可能性があります。')) {
-      try {
-        await api.delete(`/guests/${id}`);
-        await loadGuests();
-      } catch (error: any) {
-        console.error('Failed to delete guest:', error);
-        setError('ゲストの削除に失敗しました');
-      }
-    }
-  };
+    if (!window.confirm('このゲストを削除しますか？')) return;
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      hotel_name: '',
-      num_adults: 1,
-      num_children: 0,
-      phone: '',
-      email: '',
-      special_requirements: [],
-      pickup_lat: 24.3448,
-      pickup_lng: 124.1572
-    });
-    setEditingGuest(null);
+    try {
+      await api.delete(`/guests/${id}`);
+      loadGuests();
+    } catch (err: any) {
+      setError('削除に失敗しました');
+      console.error('Error deleting guest:', err);
+    }
   };
 
   const handleEdit = (guest: Guest) => {
@@ -169,6 +154,21 @@ export const GuestManagementPage: React.FC = () => {
     }
   };
 
+  const resetForm = () => {
+    setEditingGuest(null);
+    setFormData({
+      name: '',
+      hotel_name: '',
+      num_adults: 1,
+      num_children: 0,
+      phone: '',
+      email: '',
+      special_requirements: [],
+      pickup_lat: 24.3448,
+      pickup_lng: 124.1572
+    });
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -178,229 +178,176 @@ export const GuestManagementPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Paper sx={{ p: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5" component="h1">
-            ゲスト管理
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setOpenDialog(true)}
-          >
-            新規ゲスト登録
-          </Button>
-        </Box>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">ゲスト管理</Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            resetForm();
+            setOpenDialog(true);
+          }}
+        >
+          新規ゲスト
+        </Button>
+      </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>名前</TableCell>
-                <TableCell>ホテル</TableCell>
-                <TableCell align="center">大人/子供</TableCell>
-                <TableCell>連絡先</TableCell>
-                <TableCell>特記事項</TableCell>
-                <TableCell align="center">アクション</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {guests.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    ゲストが登録されていません
-                  </TableCell>
-                </TableRow>
-              ) : (
-                guests.map((guest) => (
-                  <TableRow key={guest.id} hover>
-                    <TableCell>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <PersonIcon fontSize="small" color="action" />
-                        {guest.name}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>名前</TableCell>
+              <TableCell>ホテル</TableCell>
+              <TableCell align="center">大人</TableCell>
+              <TableCell align="center">子供</TableCell>
+              <TableCell>連絡先</TableCell>
+              <TableCell>特記事項</TableCell>
+              <TableCell align="center">操作</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {guests.map((guest) => (
+              <TableRow key={guest.id}>
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PersonIcon fontSize="small" />
+                    {guest.name}
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  {guest.hotel_name && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <HotelIcon fontSize="small" />
+                      {guest.hotel_name}
+                    </Box>
+                  )}
+                </TableCell>
+                <TableCell align="center">{guest.num_adults}</TableCell>
+                <TableCell align="center">{guest.num_children}</TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    {guest.phone && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <PhoneIcon fontSize="small" />
+                        <Typography variant="body2">{guest.phone}</Typography>
                       </Box>
-                    </TableCell>
-                    <TableCell>
-                      {guest.hotel_name && (
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <HotelIcon fontSize="small" color="action" />
-                          {guest.hotel_name}
-                        </Box>
-                      )}
-                    </TableCell>
-                    <TableCell align="center">
-                      {guest.num_adults}名 / {guest.num_children}名
-                    </TableCell>
-                    <TableCell>
-                      {guest.phone && (
-                        <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                          <PhoneIcon fontSize="small" color="action" />
-                          {guest.phone}
-                        </Box>
-                      )}
-                      {guest.email && (
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <EmailIcon fontSize="small" color="action" />
-                          {guest.email}
-                        </Box>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {guest.special_requirements?.map((req, idx) => (
-                        <Chip
-                          key={idx}
-                          label={req}
-                          size="small"
-                          sx={{ mr: 0.5, mb: 0.5 }}
-                        />
-                      ))}
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEdit(guest)}
-                        title="編集"
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDelete(guest.id)}
-                        title="削除"
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                    )}
+                    {guest.email && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <EmailIcon fontSize="small" />
+                        <Typography variant="body2">{guest.email}</Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    {guest.special_requirements?.map((req, index) => (
+                      <Chip key={index} label={req} size="small" />
+                    ))}
+                  </Box>
+                </TableCell>
+                <TableCell align="center">
+                  <IconButton onClick={() => handleEdit(guest)} size="small">
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleDelete(guest.id)} size="small" color="error">
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-        {/* ゲスト登録・編集ダイアログ */}
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {editingGuest ? 'ゲスト情報編集' : '新規ゲスト登録'}
-          </DialogTitle>
-          <DialogContent>
-            <Grid2 container spacing={2} sx={{ mt: 1 }}>
-              <Grid2 size={12}>
-                <TextField
-                  label="名前"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  fullWidth
-                  required
-                  autoFocus
-                />
-              </Grid2>
+      {/* ゲスト編集ダイアログ */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingGuest ? 'ゲスト編集' : '新規ゲスト登録'}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              fullWidth
+              label="名前"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+            
+            <TextField
+              fullWidth
+              label="ホテル名"
+              value={formData.hotel_name}
+              onChange={(e) => {
+                setFormData({ ...formData, hotel_name: e.target.value });
+                handleHotelSelect(e.target.value);
+              }}
+              placeholder="ホテル名を入力"
+            />
+            
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                fullWidth
+                type="number"
+                label="大人の人数"
+                value={formData.num_adults}
+                onChange={(e) => setFormData({ ...formData, num_adults: parseInt(e.target.value) || 0 })}
+                inputProps={{ min: 0 }}
+              />
               
-              <Grid2 size={12}>
-                <TextField
-                  label="ホテル名"
-                  value={formData.hotel_name}
-                  onChange={(e) => handleHotelSelect(e.target.value)}
-                  fullWidth
-                  select
-                  SelectProps={{
-                    native: true,
-                  }}
-                >
-                  <option value="">ホテルを選択</option>
-                  {hotelPresets.map((hotel) => (
-                    <option key={hotel.name} value={hotel.name}>
-                      {hotel.name}
-                    </option>
-                  ))}
-                </TextField>
-              </Grid2>
+              <TextField
+                fullWidth
+                type="number"
+                label="子供の人数"
+                value={formData.num_children}
+                onChange={(e) => setFormData({ ...formData, num_children: parseInt(e.target.value) || 0 })}
+                inputProps={{ min: 0 }}
+              />
+            </Box>
+            
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="電話番号"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
               
-              <Grid2 size={6}>
-                <TextField
-                  label="大人"
-                  type="number"
-                  value={formData.num_adults}
-                  onChange={(e) => setFormData({ ...formData, num_adults: parseInt(e.target.value) || 0 })}
-                  fullWidth
-                  InputProps={{ inputProps: { min: 0 } }}
-                />
-              </Grid2>
-              
-              <Grid2 size={6}>
-                <TextField
-                  label="子供"
-                  type="number"
-                  value={formData.num_children}
-                  onChange={(e) => setFormData({ ...formData, num_children: parseInt(e.target.value) || 0 })}
-                  fullWidth
-                  InputProps={{ inputProps: { min: 0 } }}
-                />
-              </Grid2>
-              
-              <Grid2 size={12}>
-                <TextField
-                  label="電話番号"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  fullWidth
-                  placeholder="090-1234-5678"
-                />
-              </Grid2>
-              
-              <Grid2 size={12}>
-                <TextField
-                  label="メールアドレス"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  fullWidth
-                  placeholder="example@email.com"
-                />
-              </Grid2>
-              
-              <Grid2 size={12}>
-                <TextField
-                  label="特記事項"
-                  value={formData.special_requirements.join(', ')}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    special_requirements: e.target.value.split(',').map(req => req.trim())
-                  })}
-                  fullWidth
-                  multiline
-                  rows={2}
-                  placeholder="車椅子利用, アレルギー等（カンマ区切り）"
-                  helperText="複数の項目はカンマで区切って入力してください"
-                />
-              </Grid2>
-            </Grid2>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
-              setOpenDialog(false);
-              resetForm();
-            }}>
-              キャンセル
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              variant="contained"
-              disabled={!formData.name || formData.num_adults + formData.num_children === 0}
-            >
-              {editingGuest ? '更新' : '登録'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Paper>
+              <TextField
+                fullWidth
+                label="メールアドレス"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                type="email"
+              />
+            </Box>
+            
+            <TextField
+              fullWidth
+              label="特記事項"
+              value={formData.special_requirements.join(', ')}
+              onChange={(e) => setFormData({ 
+                ...formData, 
+                special_requirements: e.target.value.split(',').map(s => s.trim()).filter(s => s)
+              })}
+              helperText="複数の場合はカンマで区切って入力"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)}>キャンセル</Button>
+          <Button onClick={handleSubmit} variant="contained">
+            {editingGuest ? '更新' : '登録'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

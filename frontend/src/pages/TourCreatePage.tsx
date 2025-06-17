@@ -17,9 +17,9 @@ import {
   CircularProgress,
   Card,
   CardContent,
-  Divider
+  Divider,
+  Stack
 } from '@mui/material';
-import { Grid2 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -121,47 +121,63 @@ export const TourCreatePage: React.FC = () => {
 
   const calculateTotalCapacity = () => {
     const vehiclesToUse = autoSelectVehicles ? vehicles : selectedVehicles;
+    if (!vehiclesToUse || vehiclesToUse.length === 0) return 0;
+    
     return vehiclesToUse.reduce((total, vehicle) => 
-      total + vehicle.capacity_adults + vehicle.capacity_children, 0
+      total + (vehicle.capacity_adults || 0) + (vehicle.capacity_children || 0), 0
     );
   };
 
   const calculateTotalGuests = () => {
+    if (!selectedGuests || selectedGuests.length === 0) return 0;
+    
     return selectedGuests.reduce((total, guest) => 
-      total + guest.num_adults + guest.num_children, 0
+      total + (guest.num_adults || 0) + (guest.num_children || 0), 0
     );
   };
 
-  const validateForm = () => {
+  const isFormValid = () => {
+    if (!tourDate) return false;
+    if (!destinationName) return false;
+    if (selectedGuests.length === 0) return false;
+    if (!autoSelectVehicles && selectedVehicles.length === 0) return false;
+    
+    const totalCapacity = calculateTotalCapacity();
+    const totalGuests = calculateTotalGuests();
+    if (totalCapacity < totalGuests) return false;
+    
+    return true;
+  };
+
+  const getValidationError = () => {
     if (!tourDate) {
-      setError('ツアー日付を選択してください');
-      return false;
+      return 'ツアー日付を選択してください';
     }
     if (!destinationName) {
-      setError('目的地を選択してください');
-      return false;
+      return '目的地を選択してください';
     }
     if (selectedGuests.length === 0) {
-      setError('参加ゲストを選択してください');
-      return false;
+      return '参加ゲストを選択してください';
     }
     if (!autoSelectVehicles && selectedVehicles.length === 0) {
-      setError('使用車両を選択してください');
-      return false;
+      return '使用車両を選択してください';
     }
     
     const totalCapacity = calculateTotalCapacity();
     const totalGuests = calculateTotalGuests();
     if (totalCapacity < totalGuests) {
-      setError(`車両の総定員（${totalCapacity}名）が参加人数（${totalGuests}名）より少ないです`);
-      return false;
+      return `車両の総定員（${totalCapacity}名）が参加人数（${totalGuests}名）より少ないです`;
     }
     
-    return true;
+    return null;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    const validationError = getValidationError();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -175,18 +191,18 @@ export const TourCreatePage: React.FC = () => {
         destination_lng: destinationCoords.lng,
         departure_time: departureTime?.toTimeString().slice(0, 5) || '08:00',
         participant_ids: selectedGuests.map(g => g.id),
-        vehicle_ids: autoSelectVehicles ? undefined : selectedVehicles.map(v => v.id),
-        status: 'planning',
-        optimization_strategy: 'balanced'
+        vehicle_ids: autoSelectVehicles ? 
+          vehicles.slice(0, Math.ceil(calculateTotalGuests() / 8)).map(v => v.id) :
+          selectedVehicles.map(v => v.id)
       };
 
       const response = await api.post('/tours', payload);
       
-      // 作成成功後、最適化画面へ遷移
+      // 作成成功後、最適化ページへ遷移
       navigate(`/tours/${response.data.id}/optimize`);
     } catch (err: any) {
-      console.error('Failed to create tour:', err);
-      setError('ツアーの作成に失敗しました: ' + (err.response?.data?.detail || err.message));
+      setError(err.response?.data?.message || 'ツアーの作成に失敗しました');
+      console.error('Error creating tour:', err);
     } finally {
       setLoading(false);
     }
@@ -201,235 +217,192 @@ export const TourCreatePage: React.FC = () => {
   }
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <Paper sx={{ p: 4 }}>
-          <Typography variant="h5" gutterBottom>
-            新規ツアー作成
-          </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            ツアーの基本情報を入力して、ルート最適化を実行します
-          </Typography>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Typography variant="h4" gutterBottom sx={{ mb: 4 }}>
+        新規ツアー作成
+      </Typography>
 
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
-              {error}
-            </Alert>
-          )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
-          <Grid2 container spacing={3} sx={{ mt: 2 }}>
-            {/* 基本情報 */}
-            <Grid2 size={12}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={1} mb={2}>
-                    <EventIcon color="primary" />
-                    <Typography variant="h6">基本情報</Typography>
-                  </Box>
-                  
-                  <Grid2 container spacing={2}>
-                    <Grid2 size={{ xs: 12, sm: 6 }}>
-                      <DatePicker
-                        label="ツアー日付"
-                        value={tourDate}
-                        onChange={setTourDate}
-                        slotProps={{ 
-                          textField: { 
-                            fullWidth: true,
-                            required: true
-                          } 
-                        }}
-                        minDate={new Date()}
-                      />
-                    </Grid2>
-                    
-                    <Grid2 size={{ xs: 12, sm: 6 }}>
-                      <TimePicker
-                        label="出発時刻"
-                        value={departureTime}
-                        onChange={setDepartureTime}
-                        slotProps={{ 
-                          textField: { 
-                            fullWidth: true,
-                            helperText: "目的地への出発時刻"
-                          } 
-                        }}
-                      />
-                    </Grid2>
-                    
-                    <Grid2 size={{ xs: 12, sm: 6 }}>
-                      <FormControl fullWidth required>
-                        <InputLabel>アクティビティ</InputLabel>
-                        <Select
-                          value={activityType}
-                          onChange={(e) => setActivityType(e.target.value)}
-                          label="アクティビティ"
-                        >
-                          {activityTypes.map((type) => (
-                            <MenuItem key={type.value} value={type.value}>
-                              <Box display="flex" alignItems="center" gap={1}>
-                                <span>{type.icon}</span>
-                                {type.label}
-                              </Box>
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid2>
-                    
-                    <Grid2 size={{ xs: 12, sm: 6 }}>
-                      <FormControl fullWidth required>
-                        <InputLabel>目的地</InputLabel>
-                        <Select
-                          value={destinationName}
-                          onChange={(e) => handleDestinationSelect(e.target.value)}
-                          label="目的地"
-                        >
-                          <MenuItem value="">
-                            <em>目的地を選択</em>
-                          </MenuItem>
-                          {destinations
-                            .filter(d => d.activityTypes.includes(activityType))
-                            .map((dest) => (
-                              <MenuItem key={dest.name} value={dest.name}>
-                                {dest.name}
-                              </MenuItem>
-                            ))}
-                        </Select>
-                      </FormControl>
-                    </Grid2>
-                  </Grid2>
-                </CardContent>
-              </Card>
-            </Grid2>
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
+        <Stack spacing={3}>
+          {/* 基本情報 */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <EventIcon /> 基本情報
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+                <DatePicker
+                  label="ツアー日"
+                  value={tourDate}
+                  onChange={(newValue) => setTourDate(newValue)}
+                  sx={{ width: '100%' }}
+                />
+                
+                <TimePicker
+                  label="出発時刻"
+                  value={departureTime}
+                  onChange={(newValue) => setDepartureTime(newValue)}
+                  sx={{ width: '100%' }}
+                  ampm={false}
+                />
+                
+                <FormControl fullWidth>
+                  <InputLabel>アクティビティ</InputLabel>
+                  <Select
+                    value={activityType}
+                    onChange={(e) => setActivityType(e.target.value)}
+                    label="アクティビティ"
+                  >
+                    {activityTypes.map((type) => (
+                      <MenuItem key={type.value} value={type.value}>
+                        {type.icon} {type.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            </CardContent>
+          </Card>
 
-            {/* 参加ゲスト */}
-            <Grid2 size={12}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={1} mb={2}>
-                    <PeopleIcon color="primary" />
-                    <Typography variant="h6">参加ゲスト</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
-                      選択済み: {selectedGuests.length}名 / 合計: {calculateTotalGuests()}名
-                    </Typography>
-                  </Box>
-                  
-                  <Autocomplete
-                    multiple
-                    options={guests}
-                    getOptionLabel={(option) => `${option.name} (${option.hotel_name || '未設定'})`}
-                    value={selectedGuests}
-                    onChange={(_, value) => setSelectedGuests(value)}
-                    renderInput={(params) => (
-                      <TextField 
-                        {...params} 
-                        label="ゲストを選択" 
-                        required
-                        helperText="参加するゲストを選択してください"
-                      />
-                    )}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => (
-                        <Chip
-                          variant="outlined"
-                          label={`${option.name} (${option.num_adults}大人${option.num_children > 0 ? `+${option.num_children}子供` : ''})`}
-                          {...getTagProps({ index })}
-                        />
-                      ))
-                    }
-                    renderOption={(props, option) => (
-                      <Box component="li" {...props}>
-                        <Box>
-                          <Typography variant="body2">{option.name}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {option.hotel_name || '宿泊先未設定'} - 大人{option.num_adults}名
-                            {option.num_children > 0 && `、子供${option.num_children}名`}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </Grid2>
+          {/* 目的地情報 */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <MapIcon /> 目的地
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              
+              <Autocomplete
+                value={destinationName}
+                onChange={(_, newValue) => {
+                  if (newValue) handleDestinationSelect(newValue);
+                }}
+                options={destinations
+                  .filter(d => d.activityTypes.includes(activityType))
+                  .map(d => d.name)}
+                renderInput={(params) => (
+                  <TextField {...params} label="目的地を選択" />
+                )}
+                sx={{ mb: 2 }}
+              />
+              
+              {destinationCoords.lat !== 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  座標: {destinationCoords.lat.toFixed(4)}, {destinationCoords.lng.toFixed(4)}
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
 
-            {/* 使用車両 */}
-            <Grid2 size={12}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={1} mb={2}>
-                    <CarIcon color="primary" />
-                    <Typography variant="h6">使用車両</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
-                      総定員: {calculateTotalCapacity()}名
-                    </Typography>
-                  </Box>
-                  
-                  <FormControl component="fieldset" sx={{ mb: 2 }}>
-                    <Box display="flex" gap={2}>
-                      <Button
-                        variant={autoSelectVehicles ? "contained" : "outlined"}
-                        onClick={() => setAutoSelectVehicles(true)}
-                        size="small"
-                      >
-                        自動選択
-                      </Button>
-                      <Button
-                        variant={!autoSelectVehicles ? "contained" : "outlined"}
-                        onClick={() => setAutoSelectVehicles(false)}
-                        size="small"
-                      >
-                        手動選択
-                      </Button>
-                    </Box>
-                  </FormControl>
-                  
-                  {autoSelectVehicles ? (
-                    <Alert severity="info">
-                      最適化時に、参加人数に応じて最適な車両が自動的に選択されます
-                    </Alert>
-                  ) : (
-                    <Autocomplete
-                      multiple
-                      options={vehicles}
-                      getOptionLabel={(option) => `${option.name} (定員: ${option.capacity_adults + option.capacity_children}名)`}
-                      value={selectedVehicles}
-                      onChange={(_, value) => setSelectedVehicles(value)}
-                      renderInput={(params) => (
-                        <TextField 
-                          {...params} 
-                          label="車両を選択"
-                          helperText="使用する車両を選択してください"
-                        />
-                      )}
-                      renderOption={(props, option) => (
-                        <Box component="li" {...props}>
-                          <Box>
-                            <Typography variant="body2">{option.name}</Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {option.vehicle_type} - 定員: 大人{option.capacity_adults}名、子供{option.capacity_children}名
-                              {option.driver_name && ` - ドライバー: ${option.driver_name}`}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      )}
+          {/* ゲスト選択 */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <PeopleIcon /> 参加ゲスト
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              
+              <Autocomplete
+                multiple
+                value={selectedGuests}
+                onChange={(_, newValue) => setSelectedGuests(newValue)}
+                options={guests}
+                getOptionLabel={(option) => 
+                  `${option.name} (大人${option.num_adults}名・子供${option.num_children}名)`
+                }
+                renderInput={(params) => (
+                  <TextField {...params} label="ゲストを選択" />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip
+                      variant="outlined"
+                      label={`${option.name} (${option.num_adults + option.num_children}名)`}
+                      {...getTagProps({ index })}
                     />
+                  ))
+                }
+              />
+              
+              {selectedGuests.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    合計: 大人{selectedGuests.reduce((sum, g) => sum + g.num_adults, 0)}名・
+                    子供{selectedGuests.reduce((sum, g) => sum + g.num_children, 0)}名
+                    （計{calculateTotalGuests()}名）
+                  </Typography>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 車両選択 */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CarIcon /> 使用車両
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              
+              <FormControl sx={{ mb: 2 }}>
+                <Select
+                  value={autoSelectVehicles ? 'auto' : 'manual'}
+                  onChange={(e) => setAutoSelectVehicles(e.target.value === 'auto')}
+                >
+                  <MenuItem value="auto">自動選択</MenuItem>
+                  <MenuItem value="manual">手動選択</MenuItem>
+                </Select>
+              </FormControl>
+              
+              {!autoSelectVehicles && (
+                <Autocomplete
+                  multiple
+                  value={selectedVehicles}
+                  onChange={(_, newValue) => setSelectedVehicles(newValue)}
+                  options={vehicles}
+                  getOptionLabel={(option) => 
+                    `${option.name} (定員: 大人${option.capacity_adults}名・子供${option.capacity_children}名)`
+                  }
+                  renderInput={(params) => (
+                    <TextField {...params} label="車両を選択" />
                   )}
-                  
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Chip
+                        variant="outlined"
+                        label={`${option.name} (${option.capacity_adults + option.capacity_children}名)`}
+                        {...getTagProps({ index })}
+                      />
+                    ))
+                  }
+                />
+              )}
+              
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  車両総定員: {calculateTotalCapacity()}名
                   {calculateTotalCapacity() < calculateTotalGuests() && (
-                    <Alert severity="warning" sx={{ mt: 2 }}>
-                      車両の総定員が参加人数より少ないです。車両を追加してください。
-                    </Alert>
+                    <Typography component="span" color="error">
+                      {' '}（定員不足！）
+                    </Typography>
                   )}
-                </CardContent>
-              </Card>
-            </Grid2>
-          </Grid2>
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
 
           {/* アクションボタン */}
-          <Box sx={{ mt: 4, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
             <Button
+              variant="outlined"
               onClick={() => navigate('/tours')}
               disabled={loading}
             >
@@ -438,14 +411,14 @@ export const TourCreatePage: React.FC = () => {
             <Button
               variant="contained"
               onClick={handleSubmit}
-              disabled={loading || !tourDate || !destinationName || selectedGuests.length === 0}
+              disabled={loading || !isFormValid()}
               startIcon={loading ? <CircularProgress size={20} /> : <OptimizeIcon />}
             >
               {loading ? '作成中...' : 'ツアーを作成して最適化へ'}
             </Button>
           </Box>
-        </Paper>
-      </Container>
-    </LocalizationProvider>
+        </Stack>
+      </LocalizationProvider>
+    </Container>
   );
 };
