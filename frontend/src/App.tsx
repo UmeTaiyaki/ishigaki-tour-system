@@ -2,8 +2,13 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { Box } from '@mui/material';
+import { Navigation } from './components/Navigation';
 import { TourListPage } from './pages/TourListPage';
 import { OptimizationPage } from './pages/OptimizationPage';
+import { TourCreatePage } from './pages/TourCreatePage';
+import { GuestManagementPage } from './pages/GuestManagementPage';
+import { VehicleManagementPage } from './pages/VehicleManagementPage';
 
 const theme = createTheme({
   palette: {
@@ -36,14 +41,21 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <Routes>
-          <Route path="/" element={<Navigate to="/tours" replace />} />
-          <Route path="/tours" element={<TourListPage />} />
-          <Route path="/tours/:id/optimize" element={<OptimizationPage />} />
-          {/* 今後追加するルート */}
-          {/* <Route path="/tours/new" element={<TourCreatePage />} /> */}
-          {/* <Route path="/tours/:id" element={<TourDetailPage />} /> */}
-        </Routes>
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <Navigation />
+          <Box component="main" sx={{ flexGrow: 1 }}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/tours" replace />} />
+              <Route path="/tours" element={<TourListPage />} />
+              <Route path="/tours/new" element={<TourCreatePage />} />
+              <Route path="/tours/:id/optimize" element={<OptimizationPage />} />
+              <Route path="/guests" element={<GuestManagementPage />} />
+              <Route path="/vehicles" element={<VehicleManagementPage />} />
+              {/* 今後追加するルート */}
+              {/* <Route path="/tours/:id" element={<TourDetailPage />} /> */}
+            </Routes>
+          </Box>
+        </Box>
       </Router>
     </ThemeProvider>
   );
