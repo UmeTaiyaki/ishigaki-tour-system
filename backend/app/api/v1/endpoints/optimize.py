@@ -1,7 +1,8 @@
+# backend/app/api/v1/endpoints/optimize.py
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from typing import Dict, List
 import uuid
-from uuid import UUID  # これを追加
+from uuid import UUID
 from datetime import datetime, time
 import logging
 from sqlalchemy.orm import Session
@@ -49,7 +50,7 @@ def get_optimizer():
 async def optimize_route(
     request: OptimizationRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)  # DBセッション追加
+    db: Session = Depends(get_db)
 ):
     """
     ツアールートの最適化を開始する
@@ -66,7 +67,8 @@ async def optimize_route(
         created_at=datetime.now(),
         updated_at=datetime.now(),
         estimated_completion_seconds=10,
-        progress_percentage=0
+        progress_percentage=0,
+        current_step="初期化中"
     )
     
     optimization_jobs[job_id] = job_status
@@ -76,7 +78,7 @@ async def optimize_route(
         run_optimization,
         job_id=job_id,
         request=request,
-        db=db  # DBセッションを渡す
+        db=db
     )
     
     logger.info(f"Optimization job started: {job_id}")
@@ -121,12 +123,64 @@ def run_optimization(job_id: str, request: OptimizationRequest, db: Session):
         optimization_jobs[job_id].status = "processing"
         optimization_jobs[job_id].updated_at = datetime.now()
         optimization_jobs[job_id].progress_percentage = 10
+        optimization_jobs[job_id].current_step = "データ準備中"
         
-        # サンプルデータの生成（本番ではDBから取得）
-        guests = create_sample_guests(request.participant_ids)
-        vehicles = create_sample_vehicles(request.available_vehicle_ids)
+        # DBからゲストと車両データを取得
+        from app.crud.guest import guest as crud_guest
+        from app.crud.vehicle import vehicle as crud_vehicle
+        
+        # ゲスト情報を取得
+        guests = []
+        for guest_id in request.participant_ids:
+            db_guest = crud_guest.get(db, UUID(guest_id))
+            if db_guest:
+                guest = Guest(
+                    id=str(db_guest.id),
+                    name=db_guest.name,
+                    hotel_name=db_guest.hotel_name or "不明",
+                    pickup_location=Location(
+                        name=db_guest.hotel_name or "ピックアップ地点",
+                        lat=db_guest.pickup_lat or 24.3448,
+                        lng=db_guest.pickup_lng or 124.1572
+                    ),
+                    num_adults=db_guest.num_adults,
+                    num_children=db_guest.num_children,
+                    preferred_time_window=TimeWindow(
+                        start_time=db_guest.preferred_pickup_start,
+                        end_time=db_guest.preferred_pickup_end
+                    ) if db_guest.preferred_pickup_start and db_guest.preferred_pickup_end else None,
+                    special_requirements=db_guest.special_requirements or []
+                )
+                guests.append(guest)
+        
+        # 車両情報を取得
+        vehicles = []
+        for vehicle_id in request.available_vehicle_ids:
+            db_vehicle = crud_vehicle.get(db, UUID(vehicle_id))
+            if db_vehicle:
+                vehicle = Vehicle(
+                    id=str(db_vehicle.id),
+                    name=db_vehicle.name,
+                    capacity_adults=db_vehicle.capacity_adults,
+                    capacity_children=db_vehicle.capacity_children,
+                    driver_name=db_vehicle.driver_name,
+                    vehicle_type=db_vehicle.vehicle_type.value if db_vehicle.vehicle_type else "van",
+                    equipment=db_vehicle.equipment or []
+                )
+                vehicles.append(vehicle)
+        
+        # ゲストまたは車両が取得できない場合はサンプルデータを使用
+        if not guests:
+            logger.warning("No guests found in DB, using sample data")
+            guests = create_sample_guests(request.participant_ids)
+        if not vehicles:
+            logger.warning("No vehicles found in DB, using sample data")
+            vehicles = create_sample_vehicles(request.available_vehicle_ids)
         
         # 最適化エンジンを取得
+        optimization_jobs[job_id].current_step = "最適化実行中"
+        optimization_jobs[job_id].progress_percentage = 50
+        
         opt = get_optimizer()
         
         if opt:
@@ -137,6 +191,9 @@ def run_optimization(job_id: str, request: OptimizationRequest, db: Session):
             result = create_dummy_result(request)
         
         # 結果をDBに保存
+        optimization_jobs[job_id].current_step = "結果保存中"
+        optimization_jobs[job_id].progress_percentage = 90
+        
         if hasattr(request, 'tour_id') and request.tour_id:
             tour_id = UUID(request.tour_id)
         else:
@@ -167,6 +224,7 @@ def run_optimization(job_id: str, request: OptimizationRequest, db: Session):
         optimization_jobs[job_id].result = result
         optimization_jobs[job_id].progress_percentage = 100
         optimization_jobs[job_id].updated_at = datetime.now()
+        optimization_jobs[job_id].current_step = "完了"
         
         logger.info(f"Optimization completed: {job_id}")
         
@@ -175,6 +233,7 @@ def run_optimization(job_id: str, request: OptimizationRequest, db: Session):
         optimization_jobs[job_id].status = "failed"
         optimization_jobs[job_id].error_message = str(e)
         optimization_jobs[job_id].updated_at = datetime.now()
+        optimization_jobs[job_id].current_step = "エラー"
 
 
 def create_sample_guests(guest_ids: List[str]) -> List[Guest]:
@@ -201,8 +260,8 @@ def create_sample_guests(guest_ids: List[str]) -> List[Guest]:
             num_adults=2,
             num_children=1 if i % 3 == 0 else 0,
             preferred_time_window=TimeWindow(
-                start=time(7, 30),
-                end=time(8, 30)
+                start_time=time(7, 30),
+                end_time=time(8, 30)
             ) if i % 2 == 0 else None,
             special_requirements=[]
         )

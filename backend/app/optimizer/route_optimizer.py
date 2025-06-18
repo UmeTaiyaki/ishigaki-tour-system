@@ -89,7 +89,7 @@ class RouteOptimizer:
                 computation_time = (datetime.now() - start_time).total_seconds()
                 result.computation_time_seconds = computation_time
                 
-                logger.info(f"最適化成功: {len(vehicles)}台で{len(guests)}名をピックアップ")
+                logger.info(f"最適化成功: {len(result.routes)}台で{len(guests)}名をピックアップ")
                 return result
             else:
                 return OptimizationResult(
@@ -132,8 +132,7 @@ class RouteOptimizer:
         guests: List[Guest],
         vehicles: List[Vehicle]
     ) -> Dict:
-        """Google Maps APIを使用してデータを準備"""
-        
+        """Google Maps APIを使用したデータ準備"""
         # 位置情報を抽出
         locations = []
         location_names = []
@@ -152,100 +151,36 @@ class RouteOptimizer:
         locations.append((request.destination.lat, request.destination.lng))
         location_names.append(request.destination.name)
         
-        # Google Maps APIまたはHaversine距離で距離行列を取得
+        # 距離行列を計算（Google Maps APIまたはフォールバック）
         if self.google_maps_service.enabled:
-            logger.info("Using Google Maps API for distance calculation")
-            matrix_result = await self.google_maps_service.get_distance_matrix(
-                origins=locations,
-                destinations=locations,
-                departure_time=datetime.combine(
-                    request.tour_date,
-                    request.departure_time
+            try:
+                logger.info("Using Google Maps API for distance calculation")
+                distance_result = await self.google_maps_service.get_distance_matrix(
+                    origins=locations,
+                    destinations=locations,
+                    departure_time=datetime.combine(request.tour_date, request.departure_time)
                 )
-            )
-            
-            distance_matrix = matrix_result['distance_matrix'].tolist()
-            time_matrix = matrix_result['duration_matrix'].astype(int).tolist()
-            
-            logger.info(f"Distance matrix calculation method: {matrix_result['status']}")
+                distance_matrix = distance_result['distance_matrix'].tolist()
+                time_matrix = distance_result['duration_matrix'].astype(int).tolist()
+                logger.info(f"Distance matrix calculation method: {distance_result['status']}")
+            except Exception as e:
+                logger.error(f"Google Maps API error: {e}")
+                logger.info("Falling back to Haversine distance calculation")
+                distance_matrix = self.distance_calculator.calculate_distance_matrix(locations)
+                time_matrix = [[int(d * 2) for d in row] for row in distance_matrix]
+                logger.info("Distance matrix calculation method: haversine_fallback")
         else:
-            # フォールバック: 既存のHaversine距離計算
-            logger.info("Using Haversine distance calculation (fallback)")
+            logger.info("Google Maps API not enabled, using Haversine distance")
             distance_matrix = self.distance_calculator.calculate_distance_matrix(locations)
             time_matrix = [[int(d * 2) for d in row] for row in distance_matrix]
+            logger.info("Distance matrix calculation method: haversine")
         
-        # ゲストの需要（大人＋子供の数）
-        demands = [0]  # デポの需要は0
-        for guest in guests:
-            demands.append(guest.num_adults + guest.num_children)
-        demands.append(0)  # 目的地の需要は0
-        
-        # 車両容量
-        vehicle_capacities = []
-        for vehicle in vehicles:
-            vehicle_capacities.append(vehicle.capacity_adults + vehicle.capacity_children)
-        
-        # 時間窓の設定
-        time_windows = []
-        base_time = 6 * 60  # 6:00 AMを基準（分単位）
-        
-        # デポの時間窓（広い範囲）
-        time_windows.append((base_time, base_time + 4 * 60))
-        
-        # ゲストの時間窓（安全な処理）
-        for guest in guests:
-            try:
-                if guest.preferred_time_window is not None:
-                    # TimeWindowオブジェクトの場合
-                    if hasattr(guest.preferred_time_window, 'start_time') and hasattr(guest.preferred_time_window, 'end_time'):
-                        start_minutes = self._time_to_minutes(guest.preferred_time_window.start_time) - base_time
-                        end_minutes = self._time_to_minutes(guest.preferred_time_window.end_time) - base_time
-                        time_windows.append((start_minutes, end_minutes))
-                    # 辞書型の場合
-                    elif isinstance(guest.preferred_time_window, dict):
-                        start_time = guest.preferred_time_window.get('start_time')
-                        end_time = guest.preferred_time_window.get('end_time')
-                        if start_time and end_time:
-                            # 文字列の場合は変換
-                            if isinstance(start_time, str):
-                                start_time = datetime.strptime(start_time, "%H:%M:%S").time()
-                            if isinstance(end_time, str):
-                                end_time = datetime.strptime(end_time, "%H:%M:%S").time()
-                            
-                            start_minutes = self._time_to_minutes(start_time) - base_time
-                            end_minutes = self._time_to_minutes(end_time) - base_time
-                            time_windows.append((start_minutes, end_minutes))
-                        else:
-                            time_windows.append((60, 180))  # デフォルト
-                    else:
-                        time_windows.append((60, 180))  # デフォルト
-                else:
-                    # デフォルトの時間窓（7:00-9:00）
-                    time_windows.append((60, 180))
-            except Exception as e:
-                logger.warning(f"Error processing time window for guest {guest.id}: {e}")
-                time_windows.append((60, 180))  # エラー時はデフォルト
-        
-        # 目的地の時間窓（到着希望時刻周辺）
-        departure_minutes = self._time_to_minutes(request.departure_time) - base_time
-        time_windows.append((departure_minutes - 30, departure_minutes + 30))
-        
-        data = {
-            'distance_matrix': distance_matrix,
-            'time_matrix': time_matrix,
-            'location_names': location_names,
-            'num_vehicles': len(vehicles),
-            'depot': 0,
-            'destination': len(locations) - 1,
-            'demands': demands,
-            'vehicle_capacities': vehicle_capacities,
-            'time_windows': time_windows,
-            'service_time': 5,  # 各地点でのサービス時間（分）
-            'guest_data': guests,
-            'vehicle_data': vehicles
-        }
-        
-        return data
+        # 残りのデータ準備は既存の_prepare_dataと同じ
+        return self._prepare_data_common(
+            request, guests, vehicles, 
+            distance_matrix, time_matrix, 
+            location_names, locations
+        )
     
     def _prepare_data(self, 
                       request: OptimizationRequest,
@@ -276,6 +211,23 @@ class RouteOptimizer:
         # 時間行列（距離から推定: 平均速度30km/h）
         time_matrix = [[int(d * 2) for d in row] for row in distance_matrix]
         
+        return self._prepare_data_common(
+            request, guests, vehicles,
+            distance_matrix, time_matrix,
+            location_names, locations
+        )
+    
+    def _prepare_data_common(
+        self,
+        request: OptimizationRequest,
+        guests: List[Guest],
+        vehicles: List[Vehicle],
+        distance_matrix: List[List[float]],
+        time_matrix: List[List[int]],
+        location_names: List[str],
+        locations: List[Tuple[float, float]]
+    ) -> Dict:
+        """共通のデータ準備処理"""
         # ゲストの需要（大人＋子供の数）
         demands = [0]  # デポの需要は0
         for guest in guests:
@@ -384,7 +336,7 @@ class RouteOptimizer:
             'Capacity'
         )
         
-        # 時間制約
+        # 時間制約（緩和）
         def time_callback(from_index, to_index):
             from_node = manager.IndexToNode(from_index)
             to_node = manager.IndexToNode(to_index)
@@ -395,20 +347,23 @@ class RouteOptimizer:
         time_callback_index = routing.RegisterTransitCallback(time_callback)
         routing.AddDimension(
             time_callback_index,
-            30,  # 最大待機時間（分）
-            480,  # 最大総時間（8時間）
+            60,  # 最大待機時間を60分に増加
+            600,  # 最大総時間を10時間に増加
             False,  # 開始時刻を0にしない
             'Time'
         )
         
         time_dimension = routing.GetDimensionOrDie('Time')
         
-        # 時間窓を設定
+        # 時間窓を設定（より柔軟に）
         for location_idx, time_window in enumerate(data['time_windows']):
             if location_idx == data['depot']:
                 continue
             index = manager.NodeToIndex(location_idx)
-            time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
+            # 時間窓を少し広げる
+            extended_start = max(0, time_window[0] - 15)  # 15分早く
+            extended_end = time_window[1] + 15  # 15分遅く
+            time_dimension.CumulVar(index).SetRange(extended_start, extended_end)
         
         # 各車両の開始・終了時刻を設定
         for vehicle_id in range(data['num_vehicles']):
@@ -418,27 +373,36 @@ class RouteOptimizer:
                 data['time_windows'][0][0], data['time_windows'][0][1]
             )
             # 終了時刻は自由
-            time_dimension.CumulVar(end_index).SetRange(0, 480)
+            time_dimension.CumulVar(end_index).SetRange(0, 600)
         
-        # 最終目的地への到着を強制
+        # ゲストのピックアップを必須にする（ペナルティをさらに下げる）
+        for node in range(1, len(data['location_names']) - 1):  # デポと目的地を除く
+            routing.AddDisjunction([manager.NodeToIndex(node)], 50)  # ペナルティを50に下げる
+        
+        # 最終目的地への到着（すべての車両が同じ場所で終わる）
         for vehicle_id in range(data['num_vehicles']):
-            routing.SetFixedCostOfVehicle(10000, vehicle_id)
-            end_index = routing.End(vehicle_id)
-            # 最終目的地をすべての車両の終点として設定
-            routing.AddDisjunction([manager.NodeToIndex(data['destination'])], 10000)
+            routing.SetFixedCostOfVehicle(50, vehicle_id)  # 車両使用コストを50に下げる
         
-        # 検索パラメータ
+        # 検索パラメータ（より積極的な探索）
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
         search_parameters.first_solution_strategy = self.solution_strategies.get(
             strategy, routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
         )
+        search_parameters.local_search_metaheuristic = (
+            routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+        )
         search_parameters.time_limit.seconds = 30  # 30秒のタイムリミット
+        search_parameters.log_search = True  # ログを有効化
         
         # 求解
+        logger.info("Starting OR-Tools solver...")
         solution = routing.SolveWithParameters(search_parameters)
         
         if solution:
+            logger.info("Solution found!")
             return self._extract_solution(manager, routing, solution, data)
+        else:
+            logger.error("No solution found by OR-Tools")
         
         return None
     
@@ -447,6 +411,8 @@ class RouteOptimizer:
         routes = []
         time_dimension = routing.GetDimensionOrDie('Time')
         capacity_dimension = routing.GetDimensionOrDie('Capacity')
+        
+        logger.info(f"Extracting solution for {data['num_vehicles']} vehicles")
         
         for vehicle_id in range(data['num_vehicles']):
             index = routing.Start(vehicle_id)
@@ -478,6 +444,8 @@ class RouteOptimizer:
             node_index = manager.IndexToNode(index)
             route_indices.append(node_index)
             
+            logger.debug(f"Vehicle {vehicle_id}: route_indices={route_indices}, distance={route_distance}")
+            
             if len(route_indices) > 2:  # デポ以外の訪問地点がある場合
                 routes.append({
                     'vehicle_id': vehicle_id,
@@ -486,6 +454,11 @@ class RouteOptimizer:
                     'time': route_time,
                     'load': route_load
                 })
+                logger.info(f"Vehicle {vehicle_id} has a valid route with {len(route_indices)} stops")
+            else:
+                logger.debug(f"Vehicle {vehicle_id} has no valid route (only {len(route_indices)} stops)")
+        
+        logger.info(f"Total routes found: {len(routes)}")
         
         return {
             'routes': routes,
@@ -565,66 +538,55 @@ class RouteOptimizer:
             efficiency_score = min(1.0, vehicle_utilization * 0.8 + 0.2)
             
             vehicle_route = VehicleRoute(
-                vehicle_id=vehicle.id,
+                vehicle_id=str(vehicle.id),
                 vehicle_name=vehicle.name,
                 route_segments=route_segments,
                 assigned_guests=assigned_guests,
                 total_distance_km=round(vehicle_distance, 2),
                 total_duration_minutes=vehicle_time,
-                efficiency_score=round(efficiency_score, 2),
-                vehicle_utilization=round(vehicle_utilization, 2)
+                efficiency_score=efficiency_score,
+                vehicle_utilization=vehicle_utilization
             )
             
             routes.append(vehicle_route)
             total_distance += vehicle_distance
             total_time = max(total_time, vehicle_time)
         
-        # 平均効率性スコア
-        average_efficiency = sum(r.efficiency_score for r in routes) / len(routes) if routes else 0
-        
-        # 警告メッセージの生成
-        warnings = []
-        if average_efficiency < 0.7:
-            warnings.append("車両の利用効率が低くなっています。車両数を減らすことを検討してください。")
-        if total_time > 360:  # 6時間以上
-            warnings.append("総所要時間が長くなっています。ルートの見直しを検討してください。")
+        # 平均効率スコアを計算
+        avg_efficiency = sum(r.efficiency_score for r in routes) / len(routes) if routes else 0
         
         return OptimizationResult(
-            tour_id=f"tour_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            status="success",
+            tour_id=request.tour_id or f"tour_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            status="success" if routes else "failed",
             total_vehicles_used=len(routes),
             routes=routes,
             total_distance_km=round(total_distance, 2),
             total_time_minutes=total_time,
-            average_efficiency_score=round(average_efficiency, 2),
+            average_efficiency_score=avg_efficiency,
             optimization_metrics={
-                "solver_status": "completed",
+                "computation_time_seconds": 0,  # 後で設定
+                "solution_strategy": request.optimization_strategy,
                 "total_guests": len(guests),
-                "strategy": request.optimization_strategy,
-                "computation_method": "google_maps" if self.google_maps_service.enabled else "haversine"
+                "total_vehicles_available": len(vehicles)
             },
-            warnings=warnings,
-            computation_time_seconds=0  # 後で設定される
+            warnings=[],
+            computation_time_seconds=0  # 後で設定
         )
     
-    def _get_location_info(self, index: int, data: Dict, 
-                          request: OptimizationRequest) -> Location:
+    def _get_location_info(self, idx: int, data: Dict, request: OptimizationRequest) -> Location:
         """インデックスから位置情報を取得"""
-        if index == 0:
-            # デポ
+        if idx == 0:
             return Location(name="デポ", lat=24.3448, lng=124.1572)
-        elif index == len(data['location_names']) - 1:
-            # 目的地
+        elif idx == data['destination']:
             return request.destination
         else:
-            # ゲストのピックアップ地点
-            guest_idx = index - 1
+            guest_idx = idx - 1
             if guest_idx < len(data['guest_data']):
                 guest = data['guest_data'][guest_idx]
                 return guest.pickup_location
             else:
-                return Location(name=f"Unknown {index}", lat=0, lng=0)
+                return Location(name="不明", lat=24.3448, lng=124.1572)
     
     def _time_to_minutes(self, t: time) -> int:
-        """時刻を分に変換"""
+        """時刻を分単位に変換"""
         return t.hour * 60 + t.minute

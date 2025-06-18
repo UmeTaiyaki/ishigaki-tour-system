@@ -20,13 +20,11 @@ import {
   List,
   ListItem,
   ListItemText,
-  Chip,
-  Stack
+  Chip
 } from '@mui/material';
 import {
   PlayArrow as StartIcon,
   CheckCircle as SuccessIcon,
-  Error as ErrorIcon,
   ArrowBack as BackIcon
 } from '@mui/icons-material';
 import { api } from '../services/api';
@@ -43,7 +41,7 @@ interface OptimizationResult {
     vehicle_id: string;
     vehicle_name: string;
     total_distance_km: number;
-    total_time_minutes: number;
+    total_duration_minutes: number;
     efficiency_score: number;
     assigned_guests: string[];
     route_segments?: Array<{
@@ -255,6 +253,7 @@ export const OptimizationPage: React.FC = () => {
               <Box sx={{ mt: 3 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   進捗: {jobStatus.progress_percentage}%
+                  {jobStatus.current_step && ` - ${jobStatus.current_step}`}
                 </Typography>
                 <LinearProgress variant="determinate" value={jobStatus.progress_percentage} />
               </Box>
@@ -275,108 +274,116 @@ export const OptimizationPage: React.FC = () => {
             </Box>
             <Divider sx={{ mb: 2 }} />
 
-            <Box sx={{ 
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              gap: 2, 
-              mb: 3 
-            }}>
-              <Box sx={{ flex: '1 1 200px' }}>
-                <Typography variant="body2" color="text.secondary">
-                  使用車両数
-                </Typography>
-                <Typography variant="h5">
-                  {result.total_vehicles_used}台
-                </Typography>
-              </Box>
-              <Box sx={{ flex: '1 1 200px' }}>
-                <Typography variant="body2" color="text.secondary">
-                  総走行距離
-                </Typography>
-                <Typography variant="h5">
-                  {result.total_distance_km.toFixed(1)}km
-                </Typography>
-              </Box>
-              <Box sx={{ flex: '1 1 200px' }}>
-                <Typography variant="body2" color="text.secondary">
-                  総所要時間
-                </Typography>
-                <Typography variant="h5">
-                  {result.total_time_minutes}分
-                </Typography>
-              </Box>
-              <Box sx={{ flex: '1 1 200px' }}>
-                <Typography variant="body2" color="text.secondary">
-                  効率スコア
-                </Typography>
-                <Typography variant="h5">
-                  {(result.average_efficiency_score * 100).toFixed(0)}%
-                </Typography>
-              </Box>
-            </Box>
-
-            {result.warnings.length > 0 && (
-              <Alert severity="warning" sx={{ mb: 2 }}>
-                {result.warnings.join(', ')}
+            {result.total_vehicles_used === 0 ? (
+              <Alert severity="warning">
+                最適化に失敗しました。制約条件を緩和するか、車両を追加してください。
               </Alert>
-            )}
+            ) : (
+              <>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexWrap: 'wrap', 
+                  gap: 2, 
+                  mb: 3 
+                }}>
+                  <Box sx={{ flex: '1 1 200px' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      使用車両数
+                    </Typography>
+                    <Typography variant="h5">
+                      {result.total_vehicles_used}台
+                    </Typography>
+                  </Box>
+                  <Box sx={{ flex: '1 1 200px' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      総走行距離
+                    </Typography>
+                    <Typography variant="h5">
+                      {result.total_distance_km.toFixed(1)}km
+                    </Typography>
+                  </Box>
+                  <Box sx={{ flex: '1 1 200px' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      総所要時間
+                    </Typography>
+                    <Typography variant="h5">
+                      {result.total_time_minutes}分
+                    </Typography>
+                  </Box>
+                  <Box sx={{ flex: '1 1 200px' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      効率スコア
+                    </Typography>
+                    <Typography variant="h5">
+                      {(result.average_efficiency_score * 100).toFixed(0)}%
+                    </Typography>
+                  </Box>
+                </Box>
 
-            <Typography variant="subtitle1" gutterBottom>
-              車両別ルート
-            </Typography>
-            <List>
-              {result.routes.map((route, index) => (
-                <ListItem key={index} divider>
-                  <ListItemText
-                    primary={route.vehicle_name}
-                    secondary={
-                      <>
-                        走行距離: {route.total_distance_km.toFixed(1)}km / 
-                        所要時間: {route.total_time_minutes}分 / 
-                        乗客数: {route.assigned_guests.length}名
-                      </>
-                    }
-                  />
-                  <Chip 
-                    label={`効率 ${(route.efficiency_score * 100).toFixed(0)}%`}
-                    color={route.efficiency_score > 0.8 ? 'success' : 'default'}
-                    size="small"
-                  />
-                </ListItem>
-              ))}
-            </List>
+                {result.warnings.length > 0 && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    {result.warnings.join(', ')}
+                  </Alert>
+                )}
 
-            {/* 地図表示 */}
-            {result.routes.some(r => r.route_segments && r.route_segments.length > 0) && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  最適化ルートマップ
+                <Typography variant="subtitle1" gutterBottom>
+                  車両別ルート
                 </Typography>
-                <OptimizationMap
-                  routes={result.routes.filter(r => r.route_segments).map(route => ({
-                    vehicle_id: route.vehicle_id,
-                    vehicle_name: route.vehicle_name,
-                    route_segments: route.route_segments || [],
-                    total_distance_km: route.total_distance_km,
-                    efficiency_score: route.efficiency_score
-                  }))}
-                  destination={{
-                    name: tour.destination_name,
-                    lat: tour.destination_lat,
-                    lng: tour.destination_lng
-                  }}
-                  googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
-                />
-              </Box>
+                <List>
+                  {result.routes.map((route, index) => (
+                    <ListItem key={index} divider>
+                      <ListItemText
+                        primary={route.vehicle_name}
+                        secondary={
+                          <>
+                            走行距離: {route.total_distance_km.toFixed(1)}km / 
+                            所要時間: {route.total_duration_minutes}分 / 
+                            乗客数: {route.assigned_guests.length}名
+                          </>
+                        }
+                      />
+                      <Chip 
+                        label={`効率 ${(route.efficiency_score * 100).toFixed(0)}%`}
+                        color={route.efficiency_score > 0.8 ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+
+                {/* 地図表示 */}
+                {result.routes.some(r => r.route_segments && r.route_segments.length > 0) && (
+                  <Box sx={{ mt: 3 }}>
+                    <Typography variant="h6" gutterBottom>
+                      最適化ルートマップ
+                    </Typography>
+                    <OptimizationMap
+                      routes={result.routes.filter(r => r.route_segments).map(route => ({
+                        vehicle_id: route.vehicle_id,
+                        vehicle_name: route.vehicle_name,
+                        route_segments: route.route_segments || [],
+                        total_distance_km: route.total_distance_km,
+                        efficiency_score: route.efficiency_score
+                      }))}
+                      destination={{
+                        name: tour.destination_name,
+                        lat: tour.destination_lat,
+                        lng: tour.destination_lng
+                      }}
+                      googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
+                    />
+                  </Box>
+                )}
+              </>
             )}
 
             <Box display="flex" justifyContent="center" mt={3}>
               <Button
                 variant="contained"
                 color="primary"
-                onClick={() => navigate(`/tours/${id}`)}
+                onClick={() => navigate('/tours')}
               >
-                詳細を確認
+                ツアー一覧に戻る
               </Button>
             </Box>
           </Paper>

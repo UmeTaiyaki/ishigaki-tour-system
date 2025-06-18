@@ -14,8 +14,14 @@ class Location(BaseModel):
 
 class TimeWindow(BaseModel):
     """時間窓"""
-    start_time: Union[time, str]
-    end_time: Union[time, str]
+    start_time: Union[time, str] = Field(alias='start')
+    end_time: Union[time, str] = Field(alias='end')
+    
+    class Config:
+        populate_by_name = True  # Pydantic v2形式に更新
+        json_encoders = {
+            time: lambda v: v.strftime("%H:%M:%S") if v else None
+        }
     
     @validator('start_time', 'end_time', pre=True)
     def parse_time(cls, v):
@@ -35,9 +41,8 @@ class TimeWindow(BaseModel):
                 pass
             raise ValueError(f"Invalid time format: {v}")
         elif isinstance(v, dict):
-            # 辞書形式の場合（例: {'start': 'datetime.time(7, 0)'} のような文字列）
+            # 辞書形式の場合
             if 'datetime.time' in str(v):
-                # 文字列から時刻を抽出
                 import re
                 match = re.search(r'datetime\.time\((\d+),\s*(\d+)(?:,\s*(\d+))?\)', str(v))
                 if match:
@@ -48,11 +53,6 @@ class TimeWindow(BaseModel):
             raise ValueError(f"Cannot parse time from dict: {v}")
         else:
             raise ValueError(f"Invalid time type: {type(v)}")
-    
-    class Config:
-        json_encoders = {
-            time: lambda v: v.strftime("%H:%M:%S") if v else None
-        }
 
 
 class Guest(BaseModel):
@@ -92,9 +92,9 @@ class OptimizationConstraints(BaseModel):
     buffer_time_minutes: int = Field(15, ge=5, le=30)
     weather_consideration: bool = True
     max_distance_km: Optional[float] = None
-    priority_hotels: List[str] = []  # 優先的にピックアップするホテル
-    priority_time_window: Optional[TimeWindow] = None  # 優先ホテルの時間枠
-    incompatible_pairs: Optional[List[List[str]]] = None  # 非互換性ペア
+    priority_hotels: List[str] = []
+    priority_time_window: Optional[TimeWindow] = None
+    incompatible_pairs: Optional[List[List[str]]] = None
 
 
 class OptimizationRequest(BaseModel):
@@ -107,7 +107,8 @@ class OptimizationRequest(BaseModel):
     available_vehicle_ids: List[str] = Field(..., min_items=1)
     constraints: OptimizationConstraints = OptimizationConstraints()
     optimization_strategy: Literal["safety", "efficiency", "balanced"] = "balanced"
-    departure_time: time = time(8, 0)  # ツアー出発希望時刻
+    departure_time: time = time(8, 0)
+    weather_conditions: Optional[Dict[str, Any]] = None
 
 
 class RouteSegment(BaseModel):
@@ -135,7 +136,7 @@ class VehicleRoute(BaseModel):
     total_distance_km: float
     total_duration_minutes: int
     efficiency_score: float = Field(..., ge=0, le=1)
-    vehicle_utilization: float = Field(..., ge=0, le=1)  # 車両容量の使用率
+    vehicle_utilization: float = Field(..., ge=0, le=1)
 
 
 class OptimizationResult(BaseModel):
@@ -160,5 +161,6 @@ class OptimizationJobStatus(BaseModel):
     updated_at: datetime
     estimated_completion_seconds: Optional[int] = None
     progress_percentage: int = Field(0, ge=0, le=100)
+    current_step: Optional[str] = None  # Optionalに変更
     result: Optional[OptimizationResult] = None
     error_message: Optional[str] = None

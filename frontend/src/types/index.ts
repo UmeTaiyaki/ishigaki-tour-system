@@ -1,3 +1,4 @@
+// frontend/src/types/index.ts
 // ツアー関連の型定義
 export interface Tour {
   id: string;
@@ -81,6 +82,7 @@ export interface TourListResponse {
   limit: number;
 }
 
+// OptimizationJobStatusにcurrent_stepを追加
 export interface OptimizationJobStatus {
   job_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -88,6 +90,7 @@ export interface OptimizationJobStatus {
   updated_at: string;
   estimated_completion_seconds?: number;
   progress_percentage: number;
+  current_step?: string;  // この行を追加
   result?: any;
   error_message?: string;
 }
