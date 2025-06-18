@@ -36,6 +36,13 @@ class Settings(BaseSettings):
         env_file_encoding = 'utf-8'
         case_sensitive = True
         # extra="forbid"を削除して、追加の環境変数を許可
+    
+        # Google Maps API
+    GOOGLE_MAPS_API_KEY: Optional[str] = "your-google-maps-api-key"
+    
+    # 認証関連（後で使用）
+    SECRET_KEY: str = "your-secret-key-here-change-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
 
 settings = Settings()

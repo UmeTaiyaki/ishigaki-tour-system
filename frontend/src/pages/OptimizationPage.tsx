@@ -1,3 +1,4 @@
+// frontend/src/pages/OptimizationPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -32,6 +33,7 @@ import { api } from '../services/api';
 import { Tour, OptimizationJobStatus } from '../types';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { OptimizationMap } from '../components/OptimizationMap';
 
 interface OptimizationResult {
   tour_id: string;
@@ -44,6 +46,23 @@ interface OptimizationResult {
     total_time_minutes: number;
     efficiency_score: number;
     assigned_guests: string[];
+    route_segments?: Array<{
+      from_location: {
+        name: string;
+        lat: number;
+        lng: number;
+      };
+      to_location: {
+        name: string;
+        lat: number;
+        lng: number;
+      };
+      guest_id: string | null;
+      arrival_time: string;
+      departure_time: string;
+      distance_km: number;
+      duration_minutes: number;
+    }>;
   }>;
   total_distance_km: number;
   total_time_minutes: number;
@@ -82,29 +101,26 @@ export const OptimizationPage: React.FC = () => {
     }
   };
 
-const handleOptimize = async () => {
-  if (!id || !tour) return;
+  const handleOptimize = async () => {
+    if (!id || !tour) return;
 
-  setIsOptimizing(true);
-  setError(null);
-  setResult(null);
+    setIsOptimizing(true);
+    setError(null);
+    setResult(null);
 
-  try {
-    // 最適化を開始 - リクエストボディを修正
-    const response = await api.post(`/tours/${id}/optimize`);
-    // または、バックエンドが期待する形式に合わせて：
-    // const response = await api.post(`/tours/${id}/optimize`, {});
-
-    const jobId = response.data.job_id;
-    
-    // ポーリングで結果を取得
-    pollOptimizationStatus(jobId);
-  } catch (err: any) {
-    setError('最適化の開始に失敗しました');
-    console.error('Error starting optimization:', err);
-    setIsOptimizing(false);
-  }
-};
+    try {
+      // 最適化を開始
+      const response = await api.post(`/tours/${id}/optimize`);
+      const jobId = response.data.job_id;
+      
+      // ポーリングで結果を取得
+      pollOptimizationStatus(jobId);
+    } catch (err: any) {
+      setError('最適化の開始に失敗しました');
+      console.error('Error starting optimization:', err);
+      setIsOptimizing(false);
+    }
+  };
 
   const pollOptimizationStatus = async (jobId: string) => {
     const pollInterval = setInterval(async () => {
@@ -329,6 +345,30 @@ const handleOptimize = async () => {
                 </ListItem>
               ))}
             </List>
+
+            {/* 地図表示 */}
+            {result.routes.some(r => r.route_segments && r.route_segments.length > 0) && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  最適化ルートマップ
+                </Typography>
+                <OptimizationMap
+                  routes={result.routes.filter(r => r.route_segments).map(route => ({
+                    vehicle_id: route.vehicle_id,
+                    vehicle_name: route.vehicle_name,
+                    route_segments: route.route_segments || [],
+                    total_distance_km: route.total_distance_km,
+                    efficiency_score: route.efficiency_score
+                  }))}
+                  destination={{
+                    name: tour.destination_name,
+                    lat: tour.destination_lat,
+                    lng: tour.destination_lng
+                  }}
+                  googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
+                />
+              </Box>
+            )}
 
             <Box display="flex" justifyContent="center" mt={3}>
               <Button

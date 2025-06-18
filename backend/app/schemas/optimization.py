@@ -1,7 +1,8 @@
-from typing import List, Optional, Literal, Dict, Any
-from datetime import date, time, datetime
+# backend/app/schemas/optimization.py
 from pydantic import BaseModel, Field, validator
-from decimal import Decimal
+from typing import List, Dict, Any, Optional, Literal, Union
+from datetime import date, time, datetime
+from uuid import UUID
 
 
 class Location(BaseModel):
@@ -12,15 +13,46 @@ class Location(BaseModel):
 
 
 class TimeWindow(BaseModel):
-    """時間窓（希望ピックアップ時間帯）"""
-    start: time
-    end: time
+    """時間窓"""
+    start_time: Union[time, str]
+    end_time: Union[time, str]
     
-    @validator('end')
-    def end_after_start(cls, v, values):
-        if 'start' in values and v <= values['start']:
-            raise ValueError('終了時刻は開始時刻より後である必要があります')
-        return v
+    @validator('start_time', 'end_time', pre=True)
+    def parse_time(cls, v):
+        """時刻の柔軟な解析"""
+        if isinstance(v, time):
+            return v
+        elif isinstance(v, str):
+            # HH:MM:SS 形式
+            try:
+                return datetime.strptime(v, "%H:%M:%S").time()
+            except ValueError:
+                pass
+            # HH:MM 形式
+            try:
+                return datetime.strptime(v, "%H:%M").time()
+            except ValueError:
+                pass
+            raise ValueError(f"Invalid time format: {v}")
+        elif isinstance(v, dict):
+            # 辞書形式の場合（例: {'start': 'datetime.time(7, 0)'} のような文字列）
+            if 'datetime.time' in str(v):
+                # 文字列から時刻を抽出
+                import re
+                match = re.search(r'datetime\.time\((\d+),\s*(\d+)(?:,\s*(\d+))?\)', str(v))
+                if match:
+                    hour = int(match.group(1))
+                    minute = int(match.group(2))
+                    second = int(match.group(3)) if match.group(3) else 0
+                    return time(hour, minute, second)
+            raise ValueError(f"Cannot parse time from dict: {v}")
+        else:
+            raise ValueError(f"Invalid time type: {type(v)}")
+    
+    class Config:
+        json_encoders = {
+            time: lambda v: v.strftime("%H:%M:%S") if v else None
+        }
 
 
 class Guest(BaseModel):
@@ -29,7 +61,7 @@ class Guest(BaseModel):
     name: str
     hotel_name: str
     pickup_location: Location
-    num_adults: int = Field(1, ge=1)
+    num_adults: int = Field(..., ge=1)
     num_children: int = Field(0, ge=0)
     preferred_time_window: Optional[TimeWindow] = None
     special_requirements: List[str] = []
@@ -45,10 +77,9 @@ class Vehicle(BaseModel):
     name: str
     capacity_adults: int = Field(..., ge=1)
     capacity_children: int = Field(..., ge=0)
-    driver_name: str
-    current_location: Optional[Location] = None
+    driver_name: Optional[str] = None
     vehicle_type: Literal["sedan", "van", "minibus"] = "van"
-    equipment: List[str] = []  # ["child_seat", "wheelchair_accessible", etc.]
+    equipment: List[str] = []
     
     @property
     def total_capacity(self) -> int:
@@ -62,11 +93,13 @@ class OptimizationConstraints(BaseModel):
     weather_consideration: bool = True
     max_distance_km: Optional[float] = None
     priority_hotels: List[str] = []  # 優先的にピックアップするホテル
+    priority_time_window: Optional[TimeWindow] = None  # 優先ホテルの時間枠
+    incompatible_pairs: Optional[List[List[str]]] = None  # 非互換性ペア
 
 
 class OptimizationRequest(BaseModel):
     """最適化リクエスト"""
-    tour_id: Optional[str] = None  # tour_idを追加（オプショナル）
+    tour_id: Optional[str] = None
     tour_date: date
     activity_type: Literal["snorkeling", "diving", "sightseeing", "kayaking", "fishing"]
     destination: Location
@@ -86,6 +119,11 @@ class RouteSegment(BaseModel):
     duration_minutes: int
     arrival_time: time
     departure_time: time
+    
+    class Config:
+        json_encoders = {
+            time: lambda v: v.strftime("%H:%M:%S") if v else None
+        }
 
 
 class VehicleRoute(BaseModel):
