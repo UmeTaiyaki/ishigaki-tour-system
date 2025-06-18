@@ -22,16 +22,20 @@ import {
   ListItemText,
   Chip
 } from '@mui/material';
+import Grid from '@mui/material/Unstable_Grid2';
 import {
   PlayArrow as StartIcon,
   CheckCircle as SuccessIcon,
-  ArrowBack as BackIcon
+  ArrowBack as BackIcon,
+  DirectionsCar as VehicleIcon,
+  Group as GroupIcon,
+  Route as RouteIcon,
+  Timer as TimerIcon
 } from '@mui/icons-material';
 import { api } from '../services/api';
 import { Tour, OptimizationJobStatus } from '../types';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { OptimizationMap } from '../components/OptimizationMap';
 
 interface OptimizationResult {
   tour_id: string;
@@ -101,54 +105,49 @@ export const OptimizationPage: React.FC = () => {
 
   const handleOptimize = async () => {
     if (!id || !tour) return;
-
+    
     setIsOptimizing(true);
     setError(null);
     setResult(null);
-
+    
     try {
-      // 最適化を開始
-      const response = await api.post(`/tours/${id}/optimize`);
+      // 最適化ジョブを開始
+      const response = await api.post<OptimizationJobStatus>(`/tours/${id}/optimize`);
       const jobId = response.data.job_id;
+      setJobStatus(response.data);
       
-      // ポーリングで結果を取得
-      pollOptimizationStatus(jobId);
-    } catch (err: any) {
-      setError('最適化の開始に失敗しました');
-      console.error('Error starting optimization:', err);
-      setIsOptimizing(false);
-    }
-  };
-
-  const pollOptimizationStatus = async (jobId: string) => {
-    const pollInterval = setInterval(async () => {
-      try {
-        const statusResponse = await api.get<OptimizationJobStatus>(`/optimize/status/${jobId}`);
-        setJobStatus(statusResponse.data);
-
-        if (statusResponse.data.status === 'completed') {
-          clearInterval(pollInterval);
+      // ポーリングして結果を取得
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResponse = await api.get<OptimizationJobStatus>(`/optimize/status/${jobId}`);
+          setJobStatus(statusResponse.data);
           
-          // 結果を取得
-          const resultResponse = await api.get<OptimizationResult>(`/optimize/result/${jobId}`);
-          setResult(resultResponse.data);
-          setIsOptimizing(false);
-          
-          // ツアー情報を再読み込み
-          if (id) {
+          if (statusResponse.data.status === 'completed') {
+            clearInterval(pollInterval);
+            
+            // 結果を取得
+            const resultResponse = await api.get<OptimizationResult>(`/optimize/result/${jobId}`);
+            setResult(resultResponse.data);
+            setIsOptimizing(false);
+            
+            // ツアー情報をリロード
             await loadTour(id);
+          } else if (statusResponse.data.status === 'failed') {
+            clearInterval(pollInterval);
+            setError('最適化に失敗しました: ' + (statusResponse.data.error_message || 'Unknown error'));
+            setIsOptimizing(false);
           }
-        } else if (statusResponse.data.status === 'failed') {
+        } catch (err: any) {
           clearInterval(pollInterval);
-          setError(statusResponse.data.error_message || '最適化に失敗しました');
+          setError('結果の取得に失敗しました');
           setIsOptimizing(false);
         }
-      } catch (err) {
-        clearInterval(pollInterval);
-        setError('状態の確認に失敗しました');
-        setIsOptimizing(false);
-      }
-    }, 1000);
+      }, 2000);
+      
+    } catch (err: any) {
+      setError('最適化の開始に失敗しました');
+      setIsOptimizing(false);
+    }
   };
 
   if (loading) {
@@ -188,9 +187,9 @@ export const OptimizationPage: React.FC = () => {
         </Alert>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+      <Grid container spacing={3}>
         {/* ツアー情報 */}
-        <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 33%' } }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -214,26 +213,26 @@ export const OptimizationPage: React.FC = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Box>
+        </Grid>
 
         {/* 最適化設定 */}
-        <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 auto' } }}>
-          <Paper sx={{ p: 3 }}>
+        <Grid size={{ xs: 12, md: 8 }}>
+          <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               最適化設定
             </Typography>
-            <Divider sx={{ mb: 2 }} />
             
             <FormControl fullWidth sx={{ mb: 3 }}>
               <InputLabel>最適化戦略</InputLabel>
               <Select
                 value={strategy}
+                label="最適化戦略"
                 onChange={(e) => setStrategy(e.target.value)}
                 disabled={isOptimizing}
               >
-                <MenuItem value="safety">安全重視（悪天候対応・余裕時間確保）</MenuItem>
+                <MenuItem value="safety">安全重視（余裕時間確保）</MenuItem>
                 <MenuItem value="efficiency">効率重視（最短距離・最小時間）</MenuItem>
-                <MenuItem value="balanced">バランス（安全性と効率の両立）</MenuItem>
+                <MenuItem value="balanced">バランス（安全性と効率性の両立）</MenuItem>
               </Select>
             </FormControl>
 
@@ -241,154 +240,139 @@ export const OptimizationPage: React.FC = () => {
               variant="contained"
               color="primary"
               size="large"
+              startIcon={<StartIcon />}
               onClick={handleOptimize}
-              disabled={isOptimizing || tour.status !== 'planning'}
-              startIcon={isOptimizing ? <CircularProgress size={20} /> : <StartIcon />}
+              disabled={isOptimizing || tour.total_participants === 0}
               fullWidth
             >
-              {isOptimizing ? '最適化実行中...' : '最適化を実行'}
+              {isOptimizing ? '最適化中...' : '最適化を実行'}
             </Button>
 
             {jobStatus && isOptimizing && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  進捗: {jobStatus.progress_percentage}%
-                  {jobStatus.current_step && ` - ${jobStatus.current_step}`}
+              <Box mt={2}>
+                <Typography variant="body2" gutterBottom>
+                  進捗: {jobStatus.progress_percentage}% - {jobStatus.current_step}
                 </Typography>
-                <LinearProgress variant="determinate" value={jobStatus.progress_percentage} />
+                <LinearProgress 
+                  variant="determinate" 
+                  value={jobStatus.progress_percentage} 
+                />
               </Box>
             )}
           </Paper>
-        </Box>
-      </Box>
 
-      {/* 最適化結果 */}
-      {result && (
-        <Box sx={{ mt: 3 }}>
-          <Paper sx={{ p: 3 }}>
-            <Box display="flex" alignItems="center" mb={2}>
-              <SuccessIcon color="success" sx={{ mr: 1 }} />
-              <Typography variant="h6">
+          {/* 最適化結果 */}
+          {result && (
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
                 最適化結果
               </Typography>
-            </Box>
-            <Divider sx={{ mb: 2 }} />
-
-            {result.total_vehicles_used === 0 ? (
-              <Alert severity="warning">
-                最適化に失敗しました。制約条件を緩和するか、車両を追加してください。
-              </Alert>
-            ) : (
-              <>
-                <Box sx={{ 
-                  display: 'flex', 
-                  flexWrap: 'wrap', 
-                  gap: 2, 
-                  mb: 3 
-                }}>
-                  <Box sx={{ flex: '1 1 200px' }}>
-                    <Typography variant="body2" color="text.secondary">
-                      使用車両数
-                    </Typography>
-                    <Typography variant="h5">
-                      {result.total_vehicles_used}台
-                    </Typography>
+              
+              {/* サマリー */}
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid size={{ xs: 6, sm: 3 }}>
+                  <Box textAlign="center">
+                    <VehicleIcon color="primary" sx={{ fontSize: 40 }} />
+                    <Typography variant="h4">{result.total_vehicles_used}</Typography>
+                    <Typography variant="body2" color="text.secondary">使用車両数</Typography>
                   </Box>
-                  <Box sx={{ flex: '1 1 200px' }}>
-                    <Typography variant="body2" color="text.secondary">
-                      総走行距離
-                    </Typography>
-                    <Typography variant="h5">
-                      {result.total_distance_km.toFixed(1)}km
-                    </Typography>
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3 }}>
+                  <Box textAlign="center">
+                    <RouteIcon color="primary" sx={{ fontSize: 40 }} />
+                    <Typography variant="h4">{result.total_distance_km.toFixed(1)}</Typography>
+                    <Typography variant="body2" color="text.secondary">総走行距離(km)</Typography>
                   </Box>
-                  <Box sx={{ flex: '1 1 200px' }}>
-                    <Typography variant="body2" color="text.secondary">
-                      総所要時間
-                    </Typography>
-                    <Typography variant="h5">
-                      {result.total_time_minutes}分
-                    </Typography>
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3 }}>
+                  <Box textAlign="center">
+                    <TimerIcon color="primary" sx={{ fontSize: 40 }} />
+                    <Typography variant="h4">{result.total_time_minutes}</Typography>
+                    <Typography variant="body2" color="text.secondary">総所要時間(分)</Typography>
                   </Box>
-                  <Box sx={{ flex: '1 1 200px' }}>
-                    <Typography variant="body2" color="text.secondary">
-                      効率スコア
-                    </Typography>
-                    <Typography variant="h5">
-                      {(result.average_efficiency_score * 100).toFixed(0)}%
-                    </Typography>
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3 }}>
+                  <Box textAlign="center">
+                    <SuccessIcon color="success" sx={{ fontSize: 40 }} />
+                    <Typography variant="h4">{(result.average_efficiency_score * 100).toFixed(0)}%</Typography>
+                    <Typography variant="body2" color="text.secondary">効率スコア</Typography>
                   </Box>
-                </Box>
+                </Grid>
+              </Grid>
 
-                {result.warnings.length > 0 && (
-                  <Alert severity="warning" sx={{ mb: 2 }}>
-                    {result.warnings.join(', ')}
-                  </Alert>
-                )}
+              {/* 警告 */}
+              {result.warnings.length > 0 && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  {result.warnings.join('、')}
+                </Alert>
+              )}
 
-                <Typography variant="subtitle1" gutterBottom>
-                  車両別ルート
-                </Typography>
-                <List>
-                  {result.routes.map((route, index) => (
-                    <ListItem key={index} divider>
-                      <ListItemText
-                        primary={route.vehicle_name}
-                        secondary={
-                          <>
-                            走行距離: {route.total_distance_km.toFixed(1)}km / 
-                            所要時間: {route.total_duration_minutes}分 / 
-                            乗客数: {route.assigned_guests.length}名
-                          </>
-                        }
-                      />
-                      <Chip 
-                        label={`効率 ${(route.efficiency_score * 100).toFixed(0)}%`}
-                        color={route.efficiency_score > 0.8 ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </ListItem>
-                  ))}
-                </List>
+              {/* 車両別ルート */}
+              <Typography variant="subtitle1" gutterBottom sx={{ mt: 3 }}>
+                車両別ルート詳細
+              </Typography>
+              <List>
+                {result.routes.map((route, index) => (
+                  <Card key={index} sx={{ mb: 2 }}>
+                    <CardContent>
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                        <Typography variant="h6">
+                          {route.vehicle_name}
+                        </Typography>
+                        <Chip 
+                          icon={<GroupIcon />}
+                          label={`${route.assigned_guests.length}名`}
+                          color="primary"
+                          size="small"
+                        />
+                      </Box>
+                      
+                      <Grid container spacing={2}>
+                        <Grid size={4}>
+                          <Typography variant="body2" color="text.secondary">
+                            走行距離: {route.total_distance_km.toFixed(1)} km
+                          </Typography>
+                        </Grid>
+                        <Grid size={4}>
+                          <Typography variant="body2" color="text.secondary">
+                            所要時間: {route.total_duration_minutes} 分
+                          </Typography>
+                        </Grid>
+                        <Grid size={4}>
+                          <Typography variant="body2" color="text.secondary">
+                            効率: {(route.efficiency_score * 100).toFixed(0)}%
+                          </Typography>
+                        </Grid>
+                      </Grid>
 
-                {/* 地図表示 */}
-                {result.routes.some(r => r.route_segments && r.route_segments.length > 0) && (
-                  <Box sx={{ mt: 3 }}>
-                    <Typography variant="h6" gutterBottom>
-                      最適化ルートマップ
-                    </Typography>
-                    <OptimizationMap
-                      routes={result.routes.filter(r => r.route_segments).map(route => ({
-                        vehicle_id: route.vehicle_id,
-                        vehicle_name: route.vehicle_name,
-                        route_segments: route.route_segments || [],
-                        total_distance_km: route.total_distance_km,
-                        efficiency_score: route.efficiency_score
-                      }))}
-                      destination={{
-                        name: tour.destination_name,
-                        lat: tour.destination_lat,
-                        lng: tour.destination_lng
-                      }}
-                      googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
-                    />
-                  </Box>
-                )}
-              </>
-            )}
-
-            <Box display="flex" justifyContent="center" mt={3}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => navigate('/tours')}
-              >
-                ツアー一覧に戻る
-              </Button>
-            </Box>
-          </Paper>
-        </Box>
-      )}
+                      {/* ルートセグメント */}
+                      {route.route_segments && route.route_segments.length > 0 && (
+                        <Box mt={2}>
+                          <Typography variant="body2" fontWeight="bold" gutterBottom>
+                            ピックアップ順序:
+                          </Typography>
+                          {route.route_segments
+                            .filter(seg => seg.guest_id !== null)
+                            .map((seg, segIndex) => (
+                              <Box key={segIndex} sx={{ ml: 2, mb: 1 }}>
+                                <Typography variant="body2">
+                                  {segIndex + 1}. {seg.from_location.name} → {seg.to_location.name}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  到着: {seg.arrival_time} / 出発: {seg.departure_time}
+                                </Typography>
+                              </Box>
+                            ))}
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </List>
+            </Paper>
+          )}
+        </Grid>
+      </Grid>
     </Container>
   );
 };

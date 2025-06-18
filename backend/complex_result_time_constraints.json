@@ -1,147 +1,62 @@
 {
-  "tour_id": "tour_20250614235514",
+  "tour_id": "tour_20250619031452",
   "status": "success",
-  "total_vehicles_used": 1,
+  "total_vehicles_used": 2,
   "routes": [
     {
-      "vehicle_id": "689cf5d3-2a1c-49ca-89d8-8187214e201c",
-      "vehicle_name": "大型バス1",
+      "vehicle_id": "c8347489-dba6-4af6-8754-80b58b8803fe",
+      "vehicle_name": "大型バン1号",
       "route_segments": [
         {
           "from_location": {
-            "name": "Depot",
+            "name": "デポ",
             "lat": 24.3448,
             "lng": 124.1572
           },
           "to_location": {
-            "name": "アートホテル",
-            "lat": 24.3378,
-            "lng": 124.1561
-          },
-          "guest_id": "96d96bab-917a-46f1-a32f-53ab1c962965",
-          "distance_km": 0.79,
-          "duration_minutes": 2,
-          "arrival_time": "07:30:00",
-          "departure_time": "06:28:00"
-        },
-        {
-          "from_location": {
-            "name": "アートホテル",
-            "lat": 24.3378,
-            "lng": 124.1561
-          },
-          "to_location": {
-            "name": "アートホテル",
-            "lat": 24.3378,
-            "lng": 124.1561
-          },
-          "guest_id": "b6a8bda5-806c-42b4-8a65-36435237b913",
-          "distance_km": 0.0,
-          "duration_minutes": 0,
-          "arrival_time": "07:30:00",
-          "departure_time": "07:30:00"
-        },
-        {
-          "from_location": {
-            "name": "アートホテル",
-            "lat": 24.3378,
-            "lng": 124.1561
-          },
-          "to_location": {
-            "name": "フサキビーチリゾート",
-            "lat": 24.3667,
-            "lng": 124.1389
-          },
-          "guest_id": "83c62894-b0c0-41ce-9eb8-2a2cf2ff98ca",
-          "distance_km": 3.66,
-          "duration_minutes": 7,
-          "arrival_time": "07:37:00",
-          "departure_time": "07:30:00"
-        },
-        {
-          "from_location": {
-            "name": "フサキビーチリゾート",
-            "lat": 24.3667,
-            "lng": 124.1389
-          },
-          "to_location": {
-            "name": "フサキビーチリゾート",
-            "lat": 24.3667,
-            "lng": 124.1389
-          },
-          "guest_id": "81727621-5cb8-48be-88cf-619f5f96831a",
-          "distance_km": 0.0,
-          "duration_minutes": 0,
-          "arrival_time": "07:37:00",
-          "departure_time": "07:37:00"
-        },
-        {
-          "from_location": {
-            "name": "フサキビーチリゾート",
-            "lat": 24.3667,
-            "lng": 124.1389
-          },
-          "to_location": {
             "name": "ANAインターコンチネンタル",
             "lat": 24.3969,
             "lng": 124.1531
           },
-          "guest_id": "b5f53f7c-c532-431e-b49b-121fb4bdd47f",
+          "guest_id": "8d91ae55-3b68-4554-8d11-46f952a2babb",
+          "distance_km": 5.81,
+          "duration_minutes": 11,
+          "arrival_time": "09:11:00",
+          "departure_time": "09:16:00"
+        },
+        {
+          "from_location": {
+            "name": "ANAインターコンチネンタル",
+            "lat": 24.3969,
+            "lng": 124.1531
+          },
+          "to_location": {
+            "name": "フサキビーチリゾート",
+            "lat": 24.3667,
+            "lng": 124.1389
+          },
+          "guest_id": "da044b42-1e5d-4298-8d04-306815a64f2c",
           "distance_km": 3.65,
           "duration_minutes": 7,
-          "arrival_time": "07:44:00",
-          "departure_time": "07:37:00"
+          "arrival_time": "09:23:00",
+          "departure_time": "09:28:00"
         },
         {
           "from_location": {
-            "name": "ANAインターコンチネンタル",
-            "lat": 24.3969,
-            "lng": 124.1531
-          },
-          "to_location": {
-            "name": "ANAインターコンチネンタル",
-            "lat": 24.3969,
-            "lng": 124.1531
-          },
-          "guest_id": "ab4fc1e8-3931-431a-ae01-2b6c840e6d46",
-          "distance_km": 0.0,
-          "duration_minutes": 0,
-          "arrival_time": "07:44:00",
-          "departure_time": "07:44:00"
-        },
-        {
-          "from_location": {
-            "name": "ANAインターコンチネンタル",
-            "lat": 24.3969,
-            "lng": 124.1531
-          },
-          "to_location": {
-            "name": "ANAインターコンチネンタル",
-            "lat": 24.3969,
-            "lng": 124.1531
-          },
-          "guest_id": "128a7b00-b00d-4bde-9151-f90d7352e4a8",
-          "distance_km": 0.0,
-          "duration_minutes": 0,
-          "arrival_time": "07:44:00",
-          "departure_time": "07:44:00"
-        },
-        {
-          "from_location": {
-            "name": "ANAインターコンチネンタル",
-            "lat": 24.3969,
-            "lng": 124.1531
+            "name": "フサキビーチリゾート",
+            "lat": 24.3667,
+            "lng": 124.1389
           },
           "to_location": {
             "name": "グランヴィリオリゾート",
             "lat": 24.4086,
             "lng": 124.1639
           },
-          "guest_id": "d73fcbc8-d7b5-4fd5-b622-956600d5ec44",
-          "distance_km": 1.7,
-          "duration_minutes": 3,
-          "arrival_time": "07:47:00",
-          "departure_time": "07:44:00"
+          "guest_id": "86a9e87b-b1d7-4506-9da3-33cf4e487065",
+          "distance_km": 5.3,
+          "duration_minutes": 10,
+          "arrival_time": "09:38:00",
+          "departure_time": "09:43:00"
         },
         {
           "from_location": {
@@ -150,15 +65,32 @@
             "lng": 124.1639
           },
           "to_location": {
+            "name": "アートホテル",
+            "lat": 24.3378,
+            "lng": 124.1561
+          },
+          "guest_id": "900c2425-2d34-4d22-8866-339bc2fe9cb4",
+          "distance_km": 7.91,
+          "duration_minutes": 15,
+          "arrival_time": "09:58:00",
+          "departure_time": "10:03:00"
+        },
+        {
+          "from_location": {
+            "name": "アートホテル",
+            "lat": 24.3378,
+            "lng": 124.1561
+          },
+          "to_location": {
             "name": "グランヴィリオリゾート",
             "lat": 24.4086,
             "lng": 124.1639
           },
-          "guest_id": "f0b7f6f0-cfcf-4e08-841d-21984d7670b2",
-          "distance_km": 0.0,
-          "duration_minutes": 0,
-          "arrival_time": "07:47:00",
-          "departure_time": "07:47:00"
+          "guest_id": "813f7182-603f-47f7-8d23-8458bce2dcc9",
+          "distance_km": 7.91,
+          "duration_minutes": 15,
+          "arrival_time": "10:18:00",
+          "departure_time": "10:23:00"
         },
         {
           "from_location": {
@@ -174,35 +106,135 @@
           "guest_id": null,
           "distance_km": 5.23,
           "duration_minutes": 10,
-          "arrival_time": "08:30:00",
-          "departure_time": "07:47:00"
+          "arrival_time": "10:33:00",
+          "departure_time": "10:33:00"
         }
       ],
       "assigned_guests": [
-        "96d96bab-917a-46f1-a32f-53ab1c962965",
-        "b6a8bda5-806c-42b4-8a65-36435237b913",
-        "83c62894-b0c0-41ce-9eb8-2a2cf2ff98ca",
-        "81727621-5cb8-48be-88cf-619f5f96831a",
-        "b5f53f7c-c532-431e-b49b-121fb4bdd47f",
-        "ab4fc1e8-3931-431a-ae01-2b6c840e6d46",
-        "128a7b00-b00d-4bde-9151-f90d7352e4a8",
-        "d73fcbc8-d7b5-4fd5-b622-956600d5ec44",
-        "f0b7f6f0-cfcf-4e08-841d-21984d7670b2"
+        "8d91ae55-3b68-4554-8d11-46f952a2babb",
+        "da044b42-1e5d-4298-8d04-306815a64f2c",
+        "86a9e87b-b1d7-4506-9da3-33cf4e487065",
+        "900c2425-2d34-4d22-8866-339bc2fe9cb4",
+        "813f7182-603f-47f7-8d23-8458bce2dcc9"
       ],
-      "total_distance_km": 15.03,
-      "total_duration_minutes": 29,
-      "efficiency_score": 0.87,
-      "vehicle_utilization": 0.84
+      "total_distance_km": 35.81,
+      "total_duration_minutes": 68,
+      "efficiency_score": 0.7,
+      "vehicle_utilization": 1.0
+    },
+    {
+      "vehicle_id": "86818ffd-f5ed-42b5-9685-a104564417a8",
+      "vehicle_name": "中型バン2号",
+      "route_segments": [
+        {
+          "from_location": {
+            "name": "デポ",
+            "lat": 24.3448,
+            "lng": 124.1572
+          },
+          "to_location": {
+            "name": "石垣シーサイドホテル",
+            "lat": 24.3453,
+            "lng": 124.1572
+          },
+          "guest_id": "3ab4bde2-ba7d-4e46-a5c5-0f4c78d5a37f",
+          "distance_km": 0.06,
+          "duration_minutes": 0,
+          "arrival_time": "09:00:00",
+          "departure_time": "09:05:00"
+        },
+        {
+          "from_location": {
+            "name": "石垣シーサイドホテル",
+            "lat": 24.3453,
+            "lng": 124.1572
+          },
+          "to_location": {
+            "name": "ANAインターコンチネンタル",
+            "lat": 24.3969,
+            "lng": 124.1531
+          },
+          "guest_id": "348b94e0-922f-439a-a6e0-a3b5c1c80564",
+          "distance_km": 5.75,
+          "duration_minutes": 11,
+          "arrival_time": "09:16:00",
+          "departure_time": "09:21:00"
+        },
+        {
+          "from_location": {
+            "name": "ANAインターコンチネンタル",
+            "lat": 24.3969,
+            "lng": 124.1531
+          },
+          "to_location": {
+            "name": "フサキビーチリゾート",
+            "lat": 24.3667,
+            "lng": 124.1389
+          },
+          "guest_id": "d6f8e6c8-3fc4-4ccf-9fb9-9565b54bf9e5",
+          "distance_km": 3.65,
+          "duration_minutes": 7,
+          "arrival_time": "09:28:00",
+          "departure_time": "09:33:00"
+        },
+        {
+          "from_location": {
+            "name": "フサキビーチリゾート",
+            "lat": 24.3667,
+            "lng": 124.1389
+          },
+          "to_location": {
+            "name": "石垣シーサイドホテル",
+            "lat": 24.3453,
+            "lng": 124.1572
+          },
+          "guest_id": "b6208d83-3e21-409e-8746-2412bd1cdea7",
+          "distance_km": 3.02,
+          "duration_minutes": 6,
+          "arrival_time": "09:39:00",
+          "departure_time": "09:44:00"
+        },
+        {
+          "from_location": {
+            "name": "石垣シーサイドホテル",
+            "lat": 24.3453,
+            "lng": 124.1572
+          },
+          "to_location": {
+            "name": "川平湾",
+            "lat": 24.4526,
+            "lng": 124.1456
+          },
+          "guest_id": null,
+          "distance_km": 11.99,
+          "duration_minutes": 23,
+          "arrival_time": "10:07:00",
+          "departure_time": "10:07:00"
+        }
+      ],
+      "assigned_guests": [
+        "3ab4bde2-ba7d-4e46-a5c5-0f4c78d5a37f",
+        "348b94e0-922f-439a-a6e0-a3b5c1c80564",
+        "d6f8e6c8-3fc4-4ccf-9fb9-9565b54bf9e5",
+        "b6208d83-3e21-409e-8746-2412bd1cdea7"
+      ],
+      "total_distance_km": 24.47,
+      "total_duration_minutes": 47,
+      "efficiency_score": 0.7,
+      "vehicle_utilization": 0.9
     }
   ],
-  "total_distance_km": 15.03,
-  "total_time_minutes": 29,
-  "average_efficiency_score": 0.87,
+  "total_distance_km": 60.28,
+  "total_time_minutes": 68,
+  "average_efficiency_score": 0.7,
   "optimization_metrics": {
-    "solver_status": 1,
+    "computation_time_seconds": 0.038152,
+    "solution_type": "simple_fallback",
     "total_guests": 9,
-    "strategy": "balanced"
+    "assigned_guests": 9
   },
-  "warnings": [],
-  "computation_time_seconds": 0.068552
+  "warnings": [
+    "シンプルな割り当てを使用しました"
+  ],
+  "computation_time_seconds": 0.038152
 }

@@ -65,7 +65,19 @@ print("=== シンプルなケースでのデバッグ ===")
 optimizer = RouteOptimizer()
 
 # データ準備を確認
-data = optimizer._prepare_data(request, guests, vehicles)
+# _prepare_data_asyncを使用するように修正
+import asyncio
+
+async def get_data():
+    return await optimizer._prepare_data_with_google_maps(request, guests, vehicles)
+
+# 同期的に実行
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+try:
+    data = loop.run_until_complete(get_data())
+finally:
+    loop.close()
 print("\n距離行列:")
 for i, row in enumerate(data['distance_matrix']):
     print(f"{data['location_names'][i]:20} {row}")
@@ -94,10 +106,10 @@ for route in result.routes:
     cumulative_time = 0
     for i, segment in enumerate(route.route_segments):
         print(f"\n{i+1}. {segment.from_location.name} → {segment.to_location.name}")
-        print(f"   出発: {segment.departure_time} / 到着: {segment.arrival_time}")
-        print(f"   距離: {segment.distance_km} km / 時間: {segment.duration_minutes} 分")
-        
-        # 累積時間の確認
+        print(f"   距離: {segment.distance_km} km")
+        print(f"   時間: {segment.duration_minutes} 分")
+        print(f"   到着: {segment.arrival_time}")
+        print(f"   出発: {segment.departure_time}")
+        if segment.guest_id:
+            print(f"   ゲスト: {segment.guest_id}")
         cumulative_time += segment.duration_minutes
-        expected_arrival = (datetime.combine(date.today(), time(6, 0)) + timedelta(minutes=cumulative_time)).time()
-        print(f"   累積時間: {cumulative_time}分 (期待到着: {expected_arrival})")
